@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/forgot_verification_screen.dart';
 import '../../features/auth/login_screen.dart';
-import '../../features/auth/password_screen.dart';
 import '../../features/auth/register_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
 import '../../features/auth/verification_screen.dart';
@@ -33,7 +32,6 @@ abstract final class RoutePaths {
   static const String login = '/login';
   static const String register = '/register';
   static const String verification = '/verification';
-  static const String password = '/password';
   static const String forgotPassword = '/forgot-password';
   static const String forgotVerification = '/forgot-verification';
   static const String resetPassword = '/reset-password';
@@ -50,7 +48,6 @@ abstract final class RouteNames {
   static const String login = 'login';
   static const String register = 'register';
   static const String verification = 'verification';
-  static const String password = 'password';
   static const String forgotPassword = 'forgotPassword';
   static const String forgotVerification = 'forgotVerification';
   static const String resetPassword = 'resetPassword';
@@ -69,7 +66,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isAuthenticated = ref.read(authProvider).isAuthenticated;
       final location = state.matchedLocation;
-
       if (!isAuthenticated && _protectedRoutes.contains(location)) {
         return RoutePaths.login;
       }
@@ -102,13 +98,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.verification,
         name: RouteNames.verification,
         builder: (context, state) => VerificationScreen(
-          email: state.extra as String,
-        ),
-      ),
-      GoRoute(
-        path: RoutePaths.password,
-        name: RouteNames.password,
-        builder: (context, state) => PasswordScreen(
           email: state.extra as String,
         ),
       ),

@@ -15,8 +15,8 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 
 class _ForgotPasswordScreenState
     extends ConsumerState<ForgotPasswordScreen> {
-  final _emailCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -26,16 +26,12 @@ class _ForgotPasswordScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
     final success = await ref
         .read(authProvider.notifier)
         .forgotPassword(email: _emailCtrl.text.trim());
-
     if (success && mounted) {
-      context.goNamed(
-        RouteNames.forgotVerification,
-        extra: _emailCtrl.text.trim(),
-      );
+      context.goNamed(RouteNames.forgotVerification,
+          extra: _emailCtrl.text.trim());
     }
   }
 
@@ -44,52 +40,95 @@ class _ForgotPasswordScreenState
     final state = ref.watch(authProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mot de passe oublié')),
-      body: Padding(
-        padding: const EdgeInsets.all(AppDimens.screenPadding),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppDimens.xl),
-              Text(
-                'Entrez votre email pour réinitialiser votre mot de passe.',
-                style: AppTextStyles.bodyLarge,
-              ),
-              const SizedBox(height: AppDimens.xxxl),
-              TextFormField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: AppStrings.email),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Email requis';
-                  if (!v.contains('@')) return 'Email invalide';
-                  return null;
-                },
-              ),
-              if (state.error != null) ...[
+      backgroundColor: AppColors.white,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              size: 20, color: AppColors.dark),
+          onPressed: () => context.goNamed(RouteNames.login),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.screenPadding),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 const SizedBox(height: AppDimens.lg),
+                Text('Mot de passe\noublié ?', style: AppTextStyles.h2),
+                const SizedBox(height: AppDimens.sm),
                 Text(
-                  state.error!,
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+                  'Entrez votre adresse email. Nous vous enverrons un code pour réinitialiser votre mot de passe.',
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(color: AppColors.grey600),
                 ),
-              ],
-              const SizedBox(height: AppDimens.xxl),
-              ElevatedButton(
-                onPressed: state.isLoading ? null : _submit,
-                child: state.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.white,
+                const SizedBox(height: AppDimens.xxxl),
+
+                TextFormField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Adresse email',
+                    hintText: 'exemple@email.com',
+                    prefixIcon: Icon(Icons.email_outlined,
+                        color: AppColors.grey500),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Email requis';
+                    if (!v.contains('@')) return 'Email invalide';
+                    return null;
+                  },
+                ),
+
+                if (state.error != null) ...[
+                  const SizedBox(height: AppDimens.lg),
+                  Container(
+                    padding: const EdgeInsets.all(AppDimens.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.errorLight,
+                      borderRadius:
+                          BorderRadius.circular(AppDimens.radiusMd),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded,
+                            color: AppColors.error, size: 18),
+                        const SizedBox(width: AppDimens.sm),
+                        Expanded(
+                          child: Text(state.error!,
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.error)),
                         ),
-                      )
-                    : const Text(AppStrings.next),
-              ),
-            ],
+                      ],
+                    ),
+                  ),
+                ],
+
+                const Spacer(),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: AppDimens.buttonHeight,
+                  child: ElevatedButton(
+                    onPressed: state.isLoading ? null : _submit,
+                    child: state.isLoading
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.5, color: AppColors.white),
+                          )
+                        : const Text('Envoyer le code'),
+                  ),
+                ),
+                const SizedBox(height: AppDimens.xl),
+              ],
+            ),
           ),
         ),
       ),

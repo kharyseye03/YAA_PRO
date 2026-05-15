@@ -11,13 +11,15 @@ class VerificationScreen extends ConsumerStatefulWidget {
   const VerificationScreen({super.key, required this.email});
 
   @override
-  ConsumerState<VerificationScreen> createState() =>
-      _VerificationScreenState();
+  ConsumerState<VerificationScreen> createState() => _VerificationScreenState();
 }
 
 class _VerificationScreenState extends ConsumerState<VerificationScreen> {
-  final List<String> _code = List.filled(6, '');
-  int _secondsLeft = 30;
+  final List<TextEditingController> _controllers =
+      List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+
+  int _secondsLeft = 60;
   Timer? _timer;
 
   @override
@@ -28,7 +30,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
 
   void _startTimer() {
     _timer?.cancel();
-    setState(() => _secondsLeft = 30);
+    setState(() => _secondsLeft = 60);
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_secondsLeft == 0) {
         t.cancel();
@@ -41,35 +43,30 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    for (final c in _controllers) { c.dispose(); }
+    for (final f in _focusNodes) { f.dispose(); }
     super.dispose();
   }
 
-  String get _otp => _code.join();
+  String get _otp => _controllers.map((c) => c.text).join();
 
   Future<void> _verify() async {
     if (_otp.length < 6) return;
-
     final success = await ref.read(authProvider.notifier).verifyOtp(
-      email: widget.email,
-      otp: _otp,
-    );
+          email: widget.email,
+          otp: _otp,
+        );
+    if (success && mounted) context.goNamed(RouteNames.home);
+  }
 
-    if (success && mounted) {
-      context.goNamed(RouteNames.password, extra: widget.email);
+  void _onChanged(String value, int index) {
+    if (value.length == 1 && index < 5) {
+      _focusNodes[index + 1].requestFocus();
     }
-  }
-
-  void _onKeyPress(String key) {
-    final idx = _code.indexWhere((c) => c.isEmpty);
-    if (idx == -1) return;
-    setState(() => _code[idx] = key);
-    if (_otp.length == 6) _verify();
-  }
-
-  void _onDelete() {
-    final idx = _code.lastIndexWhere((c) => c.isNotEmpty);
-    if (idx == -1) return;
-    setState(() => _code[idx] = '');
+    if (value.isEmpty && index > 0) {
+      _focusNodes[index - 1].requestFocus();
+    }
+    if (_otp.length == 6) { _verify(); }
   }
 
   @override
@@ -77,108 +74,147 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
     final state = ref.watch(authProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Vérification')),
-      body: Padding(
-        padding: const EdgeInsets.all(AppDimens.screenPadding),
-        child: Column(
-          children: [
-            const SizedBox(height: AppDimens.xl),
-            Text(
-              'Code envoyé à\n${widget.email}',
-              style: AppTextStyles.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppDimens.xxxl),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(6, (i) {
-                return Container(
-                  width: 44,
-                  height: 54,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: _code[i].isNotEmpty
-                          ? AppColors.primary
-                          : AppColors.grey300,
-                      width: 1.5,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.radiusMd),
-                    color: AppColors.white,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _code[i],
-                    style: AppTextStyles.h3,
-                  ),
-                );
-              }),
-            ),
-
-            if (state.error != null) ...[
-              const SizedBox(height: AppDimens.lg),
-              Text(
-                state.error!,
-                style:
-                    AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-              ),
-            ],
-
-            const SizedBox(height: AppDimens.xxl),
-            _secondsLeft > 0
-                ? Text(
-                    'Renvoyer le code dans $_secondsLeft s',
-                    style: AppTextStyles.bodyMedium,
-                  )
-                : TextButton(
-                    onPressed: () {
-                      ref
-                          .read(authProvider.notifier)
-                          .resendCode(email: widget.email);
-                      _startTimer();
-                    },
-                    child: const Text('Renvoyer le code'),
-                  ),
-
-            const Spacer(),
-            _NumPad(onKey: _onKeyPress, onDelete: _onDelete),
-            const SizedBox(height: AppDimens.xl),
-          ],
+      backgroundColor: AppColors.white,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              size: 20, color: AppColors.dark),
+          onPressed: () => context.goNamed(RouteNames.register),
         ),
       ),
-    );
-  }
-}
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppDimens.screenPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: AppDimens.lg),
+              Text('Vérification', style: AppTextStyles.h2),
+              const SizedBox(height: AppDimens.sm),
+              RichText(
+                text: TextSpan(
+                  text: 'Un code à 6 chiffres a été envoyé à ',
+                  style: AppTextStyles.bodyMedium
+                      .copyWith(color: AppColors.grey600),
+                  children: [
+                    TextSpan(
+                      text: widget.email,
+                      style: AppTextStyles.labelMedium
+                          .copyWith(color: AppColors.dark),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppDimens.xxxl),
 
-class _NumPad extends StatelessWidget {
-  final void Function(String) onKey;
-  final VoidCallback onDelete;
+              // Champs OTP
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(6, (i) {
+                  return SizedBox(
+                    width: 46,
+                    height: 56,
+                    child: TextFormField(
+                      controller: _controllers[i],
+                      focusNode: _focusNodes[i],
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      maxLength: 1,
+                      style: AppTextStyles.h3,
+                      decoration: InputDecoration(
+                        counterText: '',
+                        contentPadding: EdgeInsets.zero,
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusMd),
+                          borderSide: const BorderSide(
+                              color: AppColors.grey300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusMd),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 1.5),
+                        ),
+                      ),
+                      onChanged: (v) => _onChanged(v, i),
+                    ),
+                  );
+                }),
+              ),
 
-  const _NumPad({required this.onKey, required this.onDelete});
+              if (state.error != null) ...[
+                const SizedBox(height: AppDimens.lg),
+                Container(
+                  padding: const EdgeInsets.all(AppDimens.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.errorLight,
+                    borderRadius:
+                        BorderRadius.circular(AppDimens.radiusMd),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          color: AppColors.error, size: 18),
+                      const SizedBox(width: AppDimens.sm),
+                      Expanded(
+                        child: Text(state.error!,
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.error)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
-  @override
-  Widget build(BuildContext context) {
-    final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0'];
+              const SizedBox(height: AppDimens.xxl),
 
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 2,
-      children: [
-        ...keys.map((k) => k.isEmpty
-            ? const SizedBox()
-            : TextButton(
-                onPressed: () => onKey(k),
-                child: Text(k, style: AppTextStyles.h3),
-              )),
-        IconButton(
-          onPressed: onDelete,
-          icon: const Icon(Icons.backspace_outlined),
+              // Renvoyer
+              Center(
+                child: _secondsLeft > 0
+                    ? Text(
+                        'Renvoyer le code dans $_secondsLeft s',
+                        style: AppTextStyles.bodyMedium
+                            .copyWith(color: AppColors.grey500),
+                      )
+                    : TextButton(
+                        onPressed: () {
+                          ref
+                              .read(authProvider.notifier)
+                              .resendCode(email: widget.email);
+                          _startTimer();
+                        },
+                        child: const Text('Renvoyer le code'),
+                      ),
+              ),
+
+              const Spacer(),
+
+              SizedBox(
+                width: double.infinity,
+                height: AppDimens.buttonHeight,
+                child: ElevatedButton(
+                  onPressed: state.isLoading || _otp.length < 6
+                      ? null
+                      : _verify,
+                  child: state.isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.5, color: AppColors.white),
+                        )
+                      : const Text('Vérifier'),
+                ),
+              ),
+              const SizedBox(height: AppDimens.xl),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
