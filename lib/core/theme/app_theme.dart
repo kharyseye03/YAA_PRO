@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../constants/constants.dart';
 
 abstract final class AppTheme {
@@ -24,7 +25,7 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: AppColors.scaffold,
 
       // ── AppBar ──────────────────────────────────────────
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0.5,
         centerTitle: true,
@@ -33,11 +34,11 @@ abstract final class AppTheme {
         foregroundColor: AppColors.dark,
         titleTextStyle: TextStyle(
           fontFamily: 'Archivo',
-          fontSize: 18,
+          fontSize: 18.sp,
           fontWeight: FontWeight.w600,
           color: AppColors.dark,
         ),
-        systemOverlayStyle: SystemUiOverlayStyle(
+        systemOverlayStyle: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.dark,
           statusBarBrightness: Brightness.light,
@@ -50,7 +51,7 @@ abstract final class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
           elevation: 0,
-          minimumSize: const Size(double.infinity, AppDimens.buttonHeight),
+          minimumSize: Size(double.infinity, AppDimens.buttonHeight.h),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppDimens.radiusMd),
           ),
@@ -63,7 +64,7 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
           elevation: 0,
-          minimumSize: const Size(double.infinity, AppDimens.buttonHeight),
+          minimumSize: Size(double.infinity, AppDimens.buttonHeight.h),
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppDimens.radiusMd),
@@ -123,19 +124,19 @@ abstract final class AppTheme {
       ),
 
       // ── Bottom Navigation ──────────────────────────────
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,
         backgroundColor: AppColors.white,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.grey500,
         selectedLabelStyle: TextStyle(
           fontFamily: 'Archivo',
-          fontSize: 11,
+          fontSize: 11.sp,
           fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: TextStyle(
           fontFamily: 'Archivo',
-          fontSize: 11,
+          fontSize: 11.sp,
           fontWeight: FontWeight.w400,
         ),
         elevation: 8,

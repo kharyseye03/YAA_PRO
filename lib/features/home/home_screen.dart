@@ -1,18 +1,485 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  static const _order = _OrderData(
+    amount: '2 300',
+    distance: '3.2 km',
+    estimatedTime: '12 min',
+    pickup: 'Marché Sandaga',
+    pickupDetail: 'Plateau, Dakar',
+    delivery: 'Cité Keur Gorgui',
+    deliveryDetail: 'Mermoz, Dakar',
+    timerSeconds: 45,
+    category: 'Alimentation',
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppStrings.availableOrders),
-      ),
-      body: const Center(
-        child: Text('Dashboard livreur — à implémenter'),
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // ── Map plein écran ───────────────────────────────
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/map2.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // ── Header dark arrondi en bas ────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _HomeHeader(),
+          ),
+
+          // ── Éléments flottants en bas ─────────────────────
+          Positioned(
+            left: 16.w,
+            right: 16.w,
+            bottom: 90.h, // au-dessus du bottom nav flottant
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Card "Commandes disponibles" — indépendante
+                _FloatingRow(),
+                SizedBox(height: 10.h),
+                // Card commande — indépendante
+                _OrderCard(order: _order),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+// ── Header dark (couleur bottom nav) ───────────────────────────
+class _HomeHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        left: AppDimens.screenPadding.w,
+        right: AppDimens.screenPadding.w,
+        top: MediaQuery.of(context).padding.top + AppDimens.sm.h,
+        bottom: AppDimens.lg.h,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Bonjour, Mamekh 👋',
+                  style: AppTextStyles.h4.copyWith(color: AppColors.white),
+                ),
+                SizedBox(height: 4.h),
+                Row(
+                  children: [
+                    Icon(LucideIcons.mapPin,
+                        color: AppColors.white, size: 13.r),
+                    SizedBox(width: 4.w),
+                    Text(
+                      'Dakar, Sénégal',
+                      style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.white.withValues(alpha: 0.6)),
+                    ),
+                    SizedBox(width: 2.w),
+                    Icon(LucideIcons.chevronDown,
+                        color: AppColors.white.withValues(alpha: 0.6),
+                        size: 12.r),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {},
+            behavior: HitTestBehavior.opaque,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SizedBox(
+                  width: 40.r,
+                  height: 40.r,
+                  child: Icon(LucideIcons.bell,
+                      color: AppColors.white, size: 22.r),
+                ),
+                Positioned(
+                  top: 8.h,
+                  right: 6.w,
+                  child: Container(
+                    width: 7.r,
+                    height: 7.r,
+                    decoration: const BoxDecoration(
+                      color: AppColors.secondary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Ligne "Commandes disponibles" — card indépendante ──────────
+class _FloatingRow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: AppDimens.lg.w, vertical: AppDimens.md.h),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text('Commandes disponibles',
+              style: AppTextStyles.labelMedium),
+          SizedBox(width: AppDimens.sm.w),
+          Container(
+            padding:
+                EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.12),
+              borderRadius:
+                  BorderRadius.circular(AppDimens.radiusFull),
+            ),
+            child: Text(
+              '3',
+              style: TextStyle(
+                fontFamily: 'Archivo',
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w700,
+                color: AppColors.secondary,
+              ),
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: () {},
+            child: Text(
+              'Voir tout',
+              style: AppTextStyles.labelSmall
+                  .copyWith(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Carte commande — card indépendante ─────────────────────────
+class _OrderCard extends StatelessWidget {
+  final _OrderData order;
+  const _OrderCard({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final mins = order.timerSeconds ~/ 60;
+    final secs = order.timerSeconds % 60;
+    final timerStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
+    final timerUrgent = order.timerSeconds < 60;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Catégorie + timer
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                AppDimens.lg.w, AppDimens.md.h, AppDimens.lg.w, 0),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface,
+                    borderRadius:
+                        BorderRadius.circular(AppDimens.radiusFull),
+                  ),
+                  child: Text(
+                    order.category,
+                    style: TextStyle(
+                      fontFamily: 'Archivo',
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: timerUrgent
+                        ? AppColors.errorLight
+                        : AppColors.warningLight,
+                    borderRadius:
+                        BorderRadius.circular(AppDimens.radiusFull),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.timer,
+                          size: 11.r,
+                          color: timerUrgent
+                              ? AppColors.error
+                              : AppColors.warning),
+                      SizedBox(width: 3.w),
+                      Text(
+                        timerStr,
+                        style: TextStyle(
+                          fontFamily: 'Archivo',
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w700,
+                          color: timerUrgent
+                              ? AppColors.error
+                              : AppColors.warning,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Montant + méta
+          Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: AppDimens.lg.w, vertical: AppDimens.sm.h),
+            child: Row(
+              children: [
+                Text('${order.amount} FCFA',
+                    style: AppTextStyles.h4
+                        .copyWith(color: AppColors.secondary)),
+                SizedBox(width: AppDimens.sm.w),
+                _Dot(),
+                SizedBox(width: AppDimens.sm.w),
+                Text(order.distance,
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.grey500)),
+                SizedBox(width: AppDimens.sm.w),
+                _Dot(),
+                SizedBox(width: AppDimens.sm.w),
+                Text(order.estimatedTime,
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.grey500)),
+              ],
+            ),
+          ),
+
+          // Itinéraire
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                AppDimens.lg.w, 0, AppDimens.lg.w, AppDimens.md.h),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Icônes + ligne de connexion ──
+                Column(
+                  children: [
+                    SizedBox(height: 15.h), // offset pour aligner avec le nom (pas le label)
+                    // Départ : cercle plein avec anneau extérieur
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 18.r,
+                          height: 18.r,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                width: 1.5),
+                          ),
+                        ),
+                        Container(
+                          width: 9.r,
+                          height: 9.r,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(width: 1.5, height: 40.h, color: AppColors.grey200),
+                    // Arrivée : pin de localisation
+                    Icon(LucideIcons.mapPin,
+                        color: AppColors.secondary, size: 18.r),
+                  ],
+                ),
+                SizedBox(width: AppDimens.md.w),
+                // ── Textes départ / arrivée ──
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Départ',
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.grey500)),
+                      SizedBox(height: 1.h),
+                      Text(order.pickup,
+                          style: AppTextStyles.labelSmall
+                              .copyWith(color: AppColors.dark)),
+                      Text(order.pickupDetail,
+                          style: AppTextStyles.caption),
+                      SizedBox(height: 10.h),
+                      Text('Arrivée',
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.grey500)),
+                      SizedBox(height: 1.h),
+                      Text(order.delivery,
+                          style: AppTextStyles.labelSmall
+                              .copyWith(color: AppColors.dark)),
+                      Text(order.deliveryDetail,
+                          style: AppTextStyles.caption),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Boutons
+          Divider(height: 1, color: AppColors.grey100),
+          Padding(
+            padding: EdgeInsets.all(AppDimens.md.r),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: OutlinedButton(
+                    onPressed: () {},
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.grey600,
+                      side: const BorderSide(color: AppColors.grey300),
+                      minimumSize: Size(double.infinity, 42.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusMd),
+                      ),
+                    ),
+                    child: Text('Refuser',
+                        style: TextStyle(
+                          fontFamily: 'Archivo',
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.grey600,
+                        )),
+                  ),
+                ),
+                SizedBox(width: AppDimens.sm.w),
+                Expanded(
+                  flex: 3,
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: Size(double.infinity, 42.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusMd),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_rounded, size: 15.r),
+                        SizedBox(width: 5.w),
+                        Text('Accepter',
+                            style: TextStyle(
+                              fontFamily: 'Archivo',
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w600,
+                            )),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Dot extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 3.r,
+        height: 3.r,
+        decoration: const BoxDecoration(
+            color: AppColors.grey400, shape: BoxShape.circle),
+      );
+}
+
+class _OrderData {
+  final String amount;
+  final String distance;
+  final String estimatedTime;
+  final String pickup;
+  final String pickupDetail;
+  final String delivery;
+  final String deliveryDetail;
+  final int timerSeconds;
+  final String category;
+
+  const _OrderData({
+    required this.amount,
+    required this.distance,
+    required this.estimatedTime,
+    required this.pickup,
+    required this.pickupDetail,
+    required this.delivery,
+    required this.deliveryDetail,
+    required this.timerSeconds,
+    required this.category,
+  });
 }

@@ -2,26 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_state.dart';
 
-const _tokenKey = 'access_token';
-const _emailKey = 'user_email';
-
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._prefs)
-      : super(AuthState(isAuthenticated: _prefs.containsKey(_tokenKey)));
-
-  final SharedPreferences _prefs;
-
-  String? get email => _prefs.getString(_emailKey);
+  AuthNotifier() : super(const AuthState());
 
   Future<bool> login({
     required String username,
     required String password,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    await _prefs.setString(_tokenKey, 'mock_token');
-    await _prefs.setString(_emailKey, username);
-    state = state.copyWith(isLoading: false, isAuthenticated: true);
+    await Future.delayed(const Duration(milliseconds: 400));
+    state = state.copyWith(isLoading: false);
     return true;
   }
 
@@ -42,8 +32,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String password,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    await _prefs.setString(_emailKey, email);
+    await Future.delayed(const Duration(milliseconds: 400));
     state = state.copyWith(isLoading: false);
     return true;
   }
@@ -53,9 +42,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String otp,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    state = state.copyWith(isLoading: false, isAuthenticated: true);
-    await _prefs.setString(_tokenKey, 'mock_token');
+    await Future.delayed(const Duration(milliseconds: 400));
+    state = state.copyWith(isLoading: false);
     return true;
   }
 
@@ -64,38 +52,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String newPassword,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    await _prefs.setString(_emailKey, email);
+    await Future.delayed(const Duration(milliseconds: 400));
     state = state.copyWith(isLoading: false);
     return true;
   }
 
   Future<bool> forgotPassword({required String email}) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 400));
     state = state.copyWith(isLoading: false);
     return true;
   }
 
   Future<bool> resendCode({required String email}) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 400));
     state = state.copyWith(isLoading: false);
     return true;
   }
-
-  Future<void> logout() async {
-    await _prefs.remove(_tokenKey);
-    await _prefs.remove(_emailKey);
-    state = const AuthState();
-  }
 }
 
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('Initialize sharedPreferencesProvider in main.dart');
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  return AuthNotifier();
 });
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return AuthNotifier(prefs);
+// Gardé pour compatibilité avec les imports existants
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError();
 });
