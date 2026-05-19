@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/app_router.dart';
+import '../orders/order_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -15,7 +18,7 @@ class HomeScreen extends StatelessWidget {
     delivery: 'Cité Keur Gorgui',
     deliveryDetail: 'Mermoz, Dakar',
     timerSeconds: 45,
-    category: 'Alimentation',
+    category: 'Restaurant',
   );
 
   @override
@@ -89,7 +92,7 @@ class _HomeHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Bonjour, Mamekh 👋',
+                  'Bonjour, Mame 👋',
                   style: AppTextStyles.h4.copyWith(color: AppColors.white),
                 ),
                 SizedBox(height: 4.h),
@@ -189,10 +192,27 @@ class _FloatingRow extends StatelessWidget {
           const Spacer(),
           GestureDetector(
             onTap: () {},
-            child: Text(
-              'Voir tout',
-              style: AppTextStyles.labelSmall
-                  .copyWith(color: AppColors.primary),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: AppColors.grey100,
+                borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Tous',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.dark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(width: 2.w),
+                  Icon(Icons.chevron_right,
+                      size: 14.r, color: AppColors.dark),
+                ],
+              ),
             ),
           ),
         ],
@@ -206,12 +226,41 @@ class _OrderCard extends StatelessWidget {
   final _OrderData order;
   const _OrderCard({required this.order});
 
+  /// Retourne (bg, text) selon la catégorie
+  static ({Color bg, Color text}) _catColors(String cat) =>
+      switch (cat.toLowerCase()) {
+        'restaurant'   => (bg: AppColors.catRestaurantLight, text: AppColors.catRestaurant),
+        'pharmacie'    => (bg: AppColors.catPharmacieLight,  text: AppColors.catPharmacie),
+        'boutique'     => (bg: AppColors.catBoutiqueLight,   text: AppColors.catBoutique),
+        'supermarché'  => (bg: AppColors.catSupermarcheLight,text: AppColors.catSupermarche),
+        'supermarche'  => (bg: AppColors.catSupermarcheLight,text: AppColors.catSupermarche),
+        _              => (bg: AppColors.primarySurface,     text: AppColors.primary),
+      };
+
   @override
   Widget build(BuildContext context) {
     final mins = order.timerSeconds ~/ 60;
     final secs = order.timerSeconds % 60;
     final timerStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
     final timerUrgent = order.timerSeconds < 60;
+    final catColor = _catColors(order.category);
+
+    final args = OrderDetailArgs(
+      id: '#CMD-2024-001',
+      amount: order.amount,
+      distance: order.distance,
+      estimatedTime: order.estimatedTime,
+      pickup: order.pickup,
+      delivery: order.delivery,
+      timerSeconds: order.timerSeconds,
+      category: order.category,
+      merchantName: 'Chez Fatou Restaurant',
+      merchantAddress: 'Marché Sandaga, Plateau, Dakar',
+      merchantPhone: '+221 33 821 45 67',
+      clientName: 'Aissatou Diallo',
+      clientPhone: '+221 77 456 78 90',
+      clientNotes: 'Appeler à l\'arrivée. Code portail : 1234',
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -227,6 +276,14 @@ class _OrderCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // Zone tappable (tout sauf les boutons)
+          GestureDetector(
+            onTap: () => context.pushNamed(
+              RouteNames.orderDetail,
+              extra: args,
+            ),
+            behavior: HitTestBehavior.opaque,
+            child: Column(children: [
           // Catégorie + timer
           Padding(
             padding: EdgeInsets.fromLTRB(
@@ -237,7 +294,7 @@ class _OrderCard extends StatelessWidget {
                   padding: EdgeInsets.symmetric(
                       horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: AppColors.primarySurface,
+                    color: catColor.bg,
                     borderRadius:
                         BorderRadius.circular(AppDimens.radiusFull),
                   ),
@@ -247,7 +304,7 @@ class _OrderCard extends StatelessWidget {
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                      color: catColor.text,
                     ),
                   ),
                 ),
@@ -296,7 +353,7 @@ class _OrderCard extends StatelessWidget {
               children: [
                 Text('${order.amount} FCFA',
                     style: AppTextStyles.h4
-                        .copyWith(color: AppColors.secondary)),
+                        .copyWith(color: AppColors.black)),
                 SizedBox(width: AppDimens.sm.w),
                 _Dot(),
                 SizedBox(width: AppDimens.sm.w),
@@ -367,8 +424,6 @@ class _OrderCard extends StatelessWidget {
                       Text(order.pickup,
                           style: AppTextStyles.labelSmall
                               .copyWith(color: AppColors.dark)),
-                      Text(order.pickupDetail,
-                          style: AppTextStyles.caption),
                       SizedBox(height: 10.h),
                       Text('Arrivée',
                           style: AppTextStyles.caption
@@ -377,13 +432,14 @@ class _OrderCard extends StatelessWidget {
                       Text(order.delivery,
                           style: AppTextStyles.labelSmall
                               .copyWith(color: AppColors.dark)),
-                      Text(order.deliveryDetail,
-                          style: AppTextStyles.caption),
                     ],
                   ),
                 ),
               ],
             ),
+          ),
+
+          ]), // fin GestureDetector
           ),
 
           // Boutons

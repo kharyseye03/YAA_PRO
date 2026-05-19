@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/app_router.dart';
+import 'order_detail_screen.dart';
 
 // ── Données statiques ───────────────────────────────────────────
 class _Order {
@@ -41,7 +44,7 @@ const _mockOrders = [
     delivery: 'Cité Keur Gorgui',
     deliveryDetail: 'Mermoz, Dakar',
     timerSeconds: 45,
-    category: 'Alimentation',
+    category: 'Restaurant',
   ),
   _Order(
     id: '2',
@@ -53,7 +56,7 @@ const _mockOrders = [
     delivery: 'Les Almadies',
     deliveryDetail: 'Ngor, Dakar',
     timerSeconds: 112,
-    category: 'Colis',
+    category: 'Boutique',
   ),
   _Order(
     id: '3',
@@ -97,36 +100,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 AppDimens.screenPadding.w,
                 0,
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Commandes', style: AppTextStyles.h3),
-                      SizedBox(height: 2.h),
-                      Text(
-                        '3 disponibles près de vous',
-                        style: AppTextStyles.bodySmall,
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Container(
-                    width: 44.r,
-                    height: 44.r,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.07),
-                          blurRadius: 12,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Icon(Icons.tune_rounded,
-                        color: AppColors.dark, size: 20.r),
+                  Text('Commandes', style: AppTextStyles.h3),
+                  SizedBox(height: 2.h),
+                  Text(
+                    '3 disponibles près de vous',
+                    style: AppTextStyles.bodySmall,
                   ),
                 ],
               ),
@@ -151,12 +132,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           horizontal: AppDimens.lg.w, vertical: 8.h),
                       decoration: BoxDecoration(
                         color: selected ? AppColors.primary : AppColors.white,
-                        borderRadius:
-                            BorderRadius.circular(AppDimens.radiusFull),
+                        borderRadius: BorderRadius.circular(AppDimens.radiusFull),
                         border: Border.all(
-                          color: selected
-                              ? AppColors.primary
-                              : AppColors.grey300,
+                          color: selected ? AppColors.primary : AppColors.grey300,
                           width: 1,
                         ),
                       ),
@@ -165,12 +143,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         style: TextStyle(
                           fontFamily: 'Archivo',
                           fontSize: 13.sp,
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: selected
-                              ? AppColors.white
-                              : AppColors.grey600,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                          color: selected ? AppColors.white : AppColors.grey600,
                         ),
                       ),
                     ),
@@ -203,12 +177,40 @@ class _OrderCard extends StatelessWidget {
   final _Order order;
   const _OrderCard({required this.order});
 
+  static ({Color bg, Color text}) _catColors(String cat) =>
+      switch (cat.toLowerCase()) {
+        'restaurant'  => (bg: AppColors.catRestaurantLight, text: AppColors.catRestaurant),
+        'pharmacie'   => (bg: AppColors.catPharmacieLight,  text: AppColors.catPharmacie),
+        'boutique'    => (bg: AppColors.catBoutiqueLight,   text: AppColors.catBoutique),
+        'supermarché' => (bg: AppColors.catSupermarcheLight,text: AppColors.catSupermarche),
+        'supermarche' => (bg: AppColors.catSupermarcheLight,text: AppColors.catSupermarche),
+        _             => (bg: AppColors.primarySurface,     text: AppColors.primary),
+      };
+
   @override
   Widget build(BuildContext context) {
     final mins = order.timerSeconds ~/ 60;
     final secs = order.timerSeconds % 60;
     final timerStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
     final timerUrgent = order.timerSeconds < 60;
+    final catColor = _catColors(order.category);
+
+    final args = OrderDetailArgs(
+      id: '#CMD-2024-00${order.id}',
+      amount: order.amount,
+      distance: order.distance,
+      estimatedTime: order.estimatedTime,
+      pickup: order.pickup,
+      delivery: order.delivery,
+      timerSeconds: order.timerSeconds,
+      category: order.category,
+      merchantName: order.category,
+      merchantAddress: order.pickup,
+      merchantPhone: '+221 33 821 45 67',
+      clientName: 'Aissatou Diallo',
+      clientPhone: '+221 77 456 78 90',
+      clientNotes: 'Appeler à l\'arrivée.',
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -216,18 +218,26 @@ class _OrderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppDimens.radiusLg),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         children: [
+          // Zone tappable (tout sauf les boutons)
+          GestureDetector(
+            onTap: () => context.pushNamed(
+              RouteNames.orderDetail,
+              extra: args,
+            ),
+            behavior: HitTestBehavior.opaque,
+            child: Column(children: [
           // Top strip
           Padding(
             padding: EdgeInsets.fromLTRB(
-                AppDimens.lg.w, AppDimens.lg.h, AppDimens.lg.w, 0),
+                AppDimens.lg.w, AppDimens.md.h, AppDimens.lg.w, 0),
             child: Row(
               children: [
                 // Catégorie badge
@@ -235,7 +245,7 @@ class _OrderCard extends StatelessWidget {
                   padding: EdgeInsets.symmetric(
                       horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: AppColors.primarySurface,
+                    color: catColor.bg,
                     borderRadius:
                         BorderRadius.circular(AppDimens.radiusFull),
                   ),
@@ -245,7 +255,7 @@ class _OrderCard extends StatelessWidget {
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                      color: catColor.text,
                     ),
                   ),
                 ),
@@ -263,8 +273,8 @@ class _OrderCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.timer_outlined,
-                          size: 12.r,
+                      Icon(LucideIcons.timer,
+                          size: 11.r,
                           color: timerUrgent
                               ? AppColors.error
                               : AppColors.warning),
@@ -297,12 +307,12 @@ class _OrderCard extends StatelessWidget {
                 Text(
                   '${order.amount} FCFA',
                   style: AppTextStyles.h4
-                      .copyWith(color: AppColors.secondary),
+                      .copyWith(color: AppColors.dark),
                 ),
                 SizedBox(width: AppDimens.sm.w),
                 Container(
-                  width: 4.r,
-                  height: 4.r,
+                  width: 3.r,
+                  height: 3.r,
                   decoration: const BoxDecoration(
                     color: AppColors.grey400,
                     shape: BoxShape.circle,
@@ -311,13 +321,13 @@ class _OrderCard extends StatelessWidget {
                 SizedBox(width: AppDimens.sm.w),
                 Text(
                   order.distance,
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.grey600),
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.grey500),
                 ),
                 SizedBox(width: AppDimens.sm.w),
                 Container(
-                  width: 4.r,
-                  height: 4.r,
+                  width: 3.r,
+                  height: 3.r,
                   decoration: const BoxDecoration(
                     color: AppColors.grey400,
                     shape: BoxShape.circle,
@@ -326,8 +336,8 @@ class _OrderCard extends StatelessWidget {
                 SizedBox(width: AppDimens.sm.w),
                 Text(
                   order.estimatedTime,
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.grey600),
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.grey500),
                 ),
               ],
             ),
@@ -368,7 +378,7 @@ class _OrderCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Container(width: 1.5, height: 40.h, color: AppColors.grey200),
+                    Container(width: 1.5, height: 28.h, color: AppColors.grey200),
                     // Arrivée : pin de localisation
                     Icon(LucideIcons.mapPin,
                         color: AppColors.secondary, size: 18.r),
@@ -387,8 +397,6 @@ class _OrderCard extends StatelessWidget {
                       Text(order.pickup,
                           style: AppTextStyles.labelSmall
                               .copyWith(color: AppColors.dark)),
-                      Text(order.pickupDetail,
-                          style: AppTextStyles.caption),
                       SizedBox(height: 10.h),
                       Text('Arrivée',
                           style: AppTextStyles.caption
@@ -397,13 +405,13 @@ class _OrderCard extends StatelessWidget {
                       Text(order.delivery,
                           style: AppTextStyles.labelSmall
                               .copyWith(color: AppColors.dark)),
-                      Text(order.deliveryDetail,
-                          style: AppTextStyles.caption),
                     ],
                   ),
                 ),
               ],
             ),
+          ),
+          ]), // fin GestureDetector
           ),
 
           // Divider

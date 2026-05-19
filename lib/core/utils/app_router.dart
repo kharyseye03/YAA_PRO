@@ -8,6 +8,7 @@ import '../../features/auth/reset_password_screen.dart';
 import '../../features/auth/verification_screen.dart';
 import '../../features/shell/main_shell.dart';
 import '../../features/delivery/delivery_screen.dart';
+import '../../features/orders/order_detail_screen.dart';
 import '../../features/starter/onboarding/onboarding_screen.dart';
 import '../../features/starter/splash/splash_screen.dart';
 
@@ -23,6 +24,7 @@ abstract final class RoutePaths {
   static const String home = '/home';
   static const String orders = '/orders';
   static const String delivery = '/delivery';
+  static const String orderDetail = '/order-detail';
   static const String history = '/history';
   static const String profile = '/profile';
 }
@@ -39,6 +41,7 @@ abstract final class RouteNames {
   static const String home = 'home';
   static const String orders = 'orders';
   static const String delivery = 'delivery';
+  static const String orderDetail = 'orderDetail';
   static const String history = 'history';
   static const String profile = 'profile';
 }
@@ -106,6 +109,13 @@ final appRouter = GoRouter(
       path: RoutePaths.delivery,
       name: RouteNames.delivery,
       builder: (context, state) => const DeliveryScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.orderDetail,
+      name: RouteNames.orderDetail,
+      builder: (context, state) => OrderDetailScreen(
+        order: state.extra as OrderDetailArgs?,
+      ),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

@@ -47,4 +47,14 @@ abstract final class AppColors {
   static const Color statusPickup = Color(0xFF9B59B6);
   static const Color statusDelivered = Color(0xFF27AE60);
   static const Color statusCancelled = Color(0xFFE74C3C);
+
+  // ── Category Colors ──────────────────────────────────────
+  static const Color catRestaurant      = Color(0xFFFF6B35);
+  static const Color catRestaurantLight = Color(0xFFFFF0EB);
+  static const Color catPharmacie       = Color(0xFF27AE60);
+  static const Color catPharmacieLight  = Color(0xFFE8F8EF);
+  static const Color catBoutique        = Color(0xFF9B59B6);
+  static const Color catBoutiqueLight   = Color(0xFFF3EAF8);
+  static const Color catSupermarche     = Color(0xFF00ACC1);
+  static const Color catSupermarcheLight= Color(0xFFE0F7FA);
 }
