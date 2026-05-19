@@ -1,7 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 
+// ── Modèle course ───────────────────────────────────────────────
+class _Course {
+  final String date;
+  final String from;
+  final String to;
+  final String amount;
+  final String category;
+  const _Course({
+    required this.date,
+    required this.from,
+    required this.to,
+    required this.amount,
+    required this.category,
+  });
+}
+
+// ── Groupe par jour ─────────────────────────────────────────────
+class _DayGroup {
+  final String label;
+  final String total;
+  final List<_Course> courses;
+  const _DayGroup({
+    required this.label,
+    required this.total,
+    required this.courses,
+  });
+}
+
+const _groups = [
+  _DayGroup(
+    label: 'Aujourd\'hui',
+    total: '15 500',
+    courses: [
+      _Course(date: '14h32', from: 'Sandaga', to: 'Keur Gorgui', amount: '2 300', category: 'Restaurant'),
+      _Course(date: '11h15', from: 'Plateau', to: 'Mermoz', amount: '1 800', category: 'Boutique'),
+      _Course(date: '09h47', from: 'Point E', to: 'Almadies', amount: '3 800', category: 'Pharmacie'),
+      _Course(date: '08h10', from: 'Grand Yoff', to: 'Parcelles', amount: '1 500', category: 'Supermarché'),
+      _Course(date: '07h55', from: 'Liberté 6', to: 'Fann', amount: '2 100', category: 'Restaurant'),
+      _Course(date: '07h20', from: 'Médina', to: 'Sacré Cœur', amount: '4 000', category: 'Boutique'),
+    ],
+  ),
+  _DayGroup(
+    label: 'Hier',
+    total: '12 200',
+    courses: [
+      _Course(date: '17h05', from: 'Almadies', to: 'Ngor', amount: '2 500', category: 'Restaurant'),
+      _Course(date: '14h30', from: 'Ouakam', to: 'Mermoz', amount: '3 200', category: 'Pharmacie'),
+      _Course(date: '10h15', from: 'Plateau', to: 'Hann', amount: '2 100', category: 'Boutique'),
+      _Course(date: '08h40', from: 'Liberté 6', to: 'Grand Dakar', amount: '4 400', category: 'Supermarché'),
+    ],
+  ),
+];
+
+// ── Écran ───────────────────────────────────────────────────────
 class GainsScreen extends StatefulWidget {
   const GainsScreen({super.key});
 
@@ -10,69 +65,18 @@ class GainsScreen extends StatefulWidget {
 }
 
 class _GainsScreenState extends State<GainsScreen> {
-  int _periodIndex = 1; // 0=Jour, 1=Semaine, 2=Mois
-  final _periods = ['Jour', 'Semaine', 'Mois'];
-
-  // Données simulées par période
-  final _weekData = [4200.0, 8500.0, 12000.0, 7300.0, 15500.0, 0.0, 0.0];
-  final _weekLabels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-  final _dayData = [0.0, 1200.0, 2300.0, 1800.0, 3500.0, 3200.0, 2500.0, 1000.0];
-  final _dayLabels = ['7h', '8h', '9h', '10h', '11h', '12h', '13h', '14h'];
-  final _monthData = [42000.0, 38000.0, 55000.0, 48200.0];
-  final _monthLabels = ['Fév', 'Mar', 'Avr', 'Mai'];
-
-  List<double> get _currentData {
-    switch (_periodIndex) {
-      case 0: return _dayData;
-      case 2: return _monthData;
-      default: return _weekData;
-    }
-  }
-
-  List<String> get _currentLabels {
-    switch (_periodIndex) {
-      case 0: return _dayLabels;
-      case 2: return _monthLabels;
-      default: return _weekLabels;
-    }
-  }
-
-  String get _totalLabel {
-    switch (_periodIndex) {
-      case 0: return 'Gains aujourd\'hui';
-      case 2: return 'Gains ce mois';
-      default: return 'Gains cette semaine';
-    }
-  }
-
-  String get _totalAmount {
-    switch (_periodIndex) {
-      case 0: return '15 500';
-      case 2: return '183 200';
-      default: return '47 500';
-    }
-  }
-
-  // Transactions simulées
-  static const _transactions = [
-    _Transaction(time: '14h32', from: 'Sandaga', to: 'Keur Gorgui', amount: '2 300', deliveries: 1),
-    _Transaction(time: '11h15', from: 'Plateau', to: 'Mermoz', amount: '1 800', deliveries: 1),
-    _Transaction(time: '09h47', from: 'Point E', to: 'Almadies', amount: '3 800', deliveries: 1),
-    _Transaction(time: 'Hier', from: 'Sandaga', to: 'Fann', amount: '2 100', deliveries: 1),
-    _Transaction(time: 'Hier', from: 'Grand Yoff', to: 'Parcelles', amount: '1 500', deliveries: 1),
-  ];
+  bool _balanceVisible = true;
 
   @override
   Widget build(BuildContext context) {
-    final maxData = _currentData.reduce((a, b) => a > b ? a : b);
-
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // Header
-            SliverToBoxAdapter(
+      body: CustomScrollView(
+        slivers: [
+          // ── Header ─────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: SafeArea(
+              bottom: false,
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
                   AppDimens.screenPadding.w,
@@ -83,341 +87,275 @@ class _GainsScreenState extends State<GainsScreen> {
                 child: Text('Mes gains', style: AppTextStyles.h3),
               ),
             ),
+          ),
 
-            // Sélecteur de période
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppDimens.screenPadding.w,
-                  AppDimens.lg.h,
-                  AppDimens.screenPadding.w,
-                  0,
-                ),
-                child: Container(
-                  height: 44.h,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.radiusMd),
-                    border: Border.all(color: AppColors.grey200),
-                  ),
-                  child: Row(
-                    children: List.generate(_periods.length, (i) {
-                      final selected = i == _periodIndex;
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () =>
-                              setState(() => _periodIndex = i),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            margin: EdgeInsets.all(3.r),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.primary
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(
-                                  AppDimens.radiusSm),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _periods[i],
-                                style: TextStyle(
-                                  fontFamily: 'Archivo',
-                                  fontSize: 13.sp,
-                                  fontWeight: selected
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: selected
-                                      ? AppColors.white
-                                      : AppColors.grey500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
+          // ── Card solde ──────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppDimens.screenPadding.w,
+                AppDimens.lg.h,
+                AppDimens.screenPadding.w,
+                0,
               ),
-            ),
-
-            // Carte total
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppDimens.screenPadding.w,
-                  AppDimens.lg.h,
-                  AppDimens.screenPadding.w,
-                  0,
-                ),
-                child: Container(
-                  padding: EdgeInsets.all(AppDimens.xl.r),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1A1A2E), Color(0xFF0E3BB8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+              child: Container(
+                padding: EdgeInsets.all(AppDimens.xl.r),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1A1A2E), Color(0xFF0E3BB8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.30),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
                     ),
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.radiusXl),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.25),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _totalLabel,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.white.withValues(alpha: 0.65),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Label + icône portefeuille + œil
+                    Row(
+                      children: [
+                        Text(
+                          'Solde disponible',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.white.withValues(alpha: 0.65),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: AppDimens.sm.h),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            _totalAmount,
-                            style: TextStyle(
-                              fontFamily: 'Archivo',
-                              fontSize: 36.sp,
-                              fontWeight: FontWeight.w800,
+                        const Spacer(),
+                        Icon(LucideIcons.wallet,
+                            color: AppColors.white.withValues(alpha: 0.5),
+                            size: 18.r),
+                        SizedBox(width: 10.w),
+                        GestureDetector(
+                          onTap: () =>
+                              setState(() => _balanceVisible = !_balanceVisible),
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            padding: EdgeInsets.all(6.r),
+                            decoration: BoxDecoration(
+                              color: AppColors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+                            ),
+                            child: Icon(
+                              _balanceVisible
+                                  ? LucideIcons.eye
+                                  : LucideIcons.eyeOff,
                               color: AppColors.white,
-                              height: 1.1,
+                              size: 16.r,
                             ),
                           ),
-                          SizedBox(width: 6.w),
-                          Padding(
-                            padding: EdgeInsets.only(bottom: 5.h),
-                            child: Text(
-                              'FCFA',
-                              style: AppTextStyles.labelMedium.copyWith(
-                                color: AppColors.white
-                                    .withValues(alpha: 0.6),
-                              ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: AppDimens.sm.h),
+
+                    // Montant principal
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: _balanceVisible
+                              ? Text(
+                                  '47 500',
+                                  key: const ValueKey('shown'),
+                                  style: TextStyle(
+                                    fontFamily: 'Archivo',
+                                    fontSize: 38.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.white,
+                                    height: 1.1,
+                                  ),
+                                )
+                              : Text(
+                                  '••••••',
+                                  key: const ValueKey('hidden'),
+                                  style: TextStyle(
+                                    fontFamily: 'Archivo',
+                                    fontSize: 38.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.white.withValues(alpha: 0.5),
+                                    height: 1.1,
+                                    letterSpacing: 4,
+                                  ),
+                                ),
+                        ),
+                        SizedBox(width: 6.w),
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 6.h),
+                          child: Text(
+                            'FCFA',
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.white.withValues(alpha: 0.55),
                             ),
                           ),
-                        ],
-                      ),
-                      SizedBox(height: AppDimens.xl.h),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: AppDimens.xs.h),
 
-                      // Mini stats
-                      Row(
-                        children: [
-                          _GainsStat(
-                              label: 'Livraisons',
-                              value: '5',
-                              icon: Icons.local_shipping_outlined),
-                          _GainsDivider(),
-                          _GainsStat(
-                              label: 'Temps actif',
-                              value: '4h 20',
-                              icon: Icons.access_time_rounded),
-                          _GainsDivider(),
-                          _GainsStat(
-                              label: 'Km parcourus',
-                              value: '23.4',
-                              icon: Icons.route_outlined),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+                    // Sous-texte gains aujourd'hui
+                    Row(
+                      children: [
+                        Container(
+                          width: 6.r,
+                          height: 6.r,
+                          decoration: BoxDecoration(
+                            color: AppColors.success,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        SizedBox(width: 5.w),
+                        Text(
+                          _balanceVisible
+                              ? '+15 500 FCFA aujourd\'hui'
+                              : '•••••• FCFA aujourd\'hui',
+                          style: TextStyle(
+                            fontFamily: 'Archivo',
+                            fontSize: 12.sp,
+                            color: AppColors.white.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: AppDimens.xl.h),
 
-            // Graphe barres
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppDimens.screenPadding.w,
-                  AppDimens.lg.h,
-                  AppDimens.screenPadding.w,
-                  0,
-                ),
-                child: Container(
-                  padding: EdgeInsets.all(AppDimens.lg.r),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.radiusMd),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Évolution', style: AppTextStyles.labelMedium),
-                      SizedBox(height: AppDimens.lg.h),
-                      SizedBox(
-                        height: 120.h,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                          children: List.generate(
-                            _currentData.length,
-                            (i) {
-                              final val = _currentData[i];
-                              final ratio =
-                                  maxData > 0 ? val / maxData : 0.0;
-                              final isMax = val == maxData && val > 0;
-                              return Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.end,
-                                children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(
-                                        milliseconds: 400),
-                                    width: 28.w,
-                                    height: 100.h * ratio,
-                                    decoration: BoxDecoration(
-                                      color: isMax
-                                          ? AppColors.primary
-                                          : AppColors.primarySurface,
-                                      borderRadius:
-                                          BorderRadius.circular(6.r),
-                                    ),
-                                  ),
-                                  SizedBox(height: 6.h),
-                                  Text(
-                                    _currentLabels[i],
-                                    style: AppTextStyles.caption,
-                                  ),
-                                ],
-                              );
-                            },
+                    // Bouton Retirer
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {},
+                        icon: Icon(LucideIcons.arrowUpFromLine, size: 16.r),
+                        label: Text(
+                          'Retirer mes gains',
+                          style: TextStyle(
+                            fontFamily: 'Archivo',
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.white,
+                          foregroundColor: AppColors.dark,
+                          minimumSize: Size(double.infinity, 48.h),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppDimens.radiusMd),
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
 
-            // Transactions récentes
+          // ── Titre section courses ───────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppDimens.screenPadding.w,
+                AppDimens.xl.h,
+                AppDimens.screenPadding.w,
+                AppDimens.md.h,
+              ),
+              child: Text('Mes courses', style: AppTextStyles.labelLarge),
+            ),
+          ),
+
+          // ── Liste groupée par jour ──────────────────────────
+          for (final group in _groups) ...[
+            // Label jour + total
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
                   AppDimens.screenPadding.w,
-                  AppDimens.xl.h,
+                  AppDimens.sm.h,
                   AppDimens.screenPadding.w,
-                  0,
+                  AppDimens.sm.h,
                 ),
-                child: Text('Transactions récentes',
-                    style: AppTextStyles.labelLarge),
+                child: Row(
+                  children: [
+                    Text(
+                      group.label,
+                      style: AppTextStyles.labelSmall
+                          .copyWith(color: AppColors.grey600),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '+${group.total} FCFA',
+                      style: AppTextStyles.labelSmall
+                          .copyWith(color: AppColors.success),
+                    ),
+                  ],
+                ),
               ),
             ),
+            // Tiles
             SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 AppDimens.screenPadding.w,
-                AppDimens.md.h,
+                0,
                 AppDimens.screenPadding.w,
-                AppDimens.xl.h,
+                AppDimens.md.h,
               ),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => Padding(
                     padding: EdgeInsets.only(bottom: AppDimens.sm.h),
-                    child: _TransactionTile(tx: _transactions[i]),
+                    child: _CourseTile(course: group.courses[i]),
                   ),
-                  childCount: _transactions.length,
+                  childCount: group.courses.length,
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
 
-// ── Widgets internes ────────────────────────────────────────────
-
-class _GainsStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  const _GainsStat({required this.label, required this.value, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, color: AppColors.white.withValues(alpha: 0.6), size: 16.r),
-          SizedBox(height: 4.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Archivo',
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w700,
-              color: AppColors.white,
-            ),
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Archivo',
-              fontSize: 10.sp,
-              color: AppColors.white.withValues(alpha: 0.55),
-            ),
-          ),
+          SliverToBoxAdapter(child: SizedBox(height: 90.h)),
         ],
       ),
     );
   }
 }
 
-class _GainsDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 36.h,
-      color: AppColors.white.withValues(alpha: 0.15),
-    );
-  }
-}
+// ── Tile course ─────────────────────────────────────────────────
+class _CourseTile extends StatelessWidget {
+  final _Course course;
+  const _CourseTile({required this.course});
 
-class _Transaction {
-  final String time;
-  final String from;
-  final String to;
-  final String amount;
-  final int deliveries;
-  const _Transaction({
-    required this.time,
-    required this.from,
-    required this.to,
-    required this.amount,
-    required this.deliveries,
-  });
-}
+  static ({Color bg, Color icon}) _catColor(String cat) =>
+      switch (cat.toLowerCase()) {
+        'restaurant'  => (bg: AppColors.catRestaurantLight, icon: AppColors.catRestaurant),
+        'pharmacie'   => (bg: AppColors.catPharmacieLight,  icon: AppColors.catPharmacie),
+        'boutique'    => (bg: AppColors.catBoutiqueLight,   icon: AppColors.catBoutique),
+        'supermarché' => (bg: AppColors.catSupermarcheLight,icon: AppColors.catSupermarche),
+        _             => (bg: AppColors.primarySurface,     icon: AppColors.primary),
+      };
 
-class _TransactionTile extends StatelessWidget {
-  final _Transaction tx;
-  const _TransactionTile({required this.tx});
+  static IconData _catIcon(String cat) =>
+      switch (cat.toLowerCase()) {
+        'restaurant'  => Icons.restaurant_rounded,
+        'pharmacie'   => Icons.local_pharmacy_rounded,
+        'boutique'    => Icons.shopping_bag_rounded,
+        'supermarché' => Icons.shopping_cart_rounded,
+        _             => Icons.local_shipping_rounded,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final cc = _catColor(course.category);
+
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: AppDimens.lg.w, vertical: AppDimens.md.h),
+          horizontal: AppDimens.md.w, vertical: AppDimens.md.h),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(AppDimens.radiusMd),
@@ -431,35 +369,40 @@ class _TransactionTile extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Icône catégorie
           Container(
             width: 42.r,
             height: 42.r,
             decoration: BoxDecoration(
-              color: AppColors.successLight,
+              color: cc.bg,
               borderRadius: BorderRadius.circular(AppDimens.radiusSm),
             ),
-            child: Icon(Icons.local_shipping_rounded,
-                color: AppColors.success, size: 20.r),
+            child: Icon(_catIcon(course.category),
+                color: cc.icon, size: 20.r),
           ),
           SizedBox(width: AppDimens.md.w),
+
+          // Trajet
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${tx.from} → ${tx.to}',
-                  style:
-                      AppTextStyles.labelSmall.copyWith(color: AppColors.dark),
+                  '${course.from} → ${course.to}',
+                  style: AppTextStyles.labelSmall
+                      .copyWith(color: AppColors.dark),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 3.h),
-                Text(tx.time, style: AppTextStyles.caption),
+                Text(course.date, style: AppTextStyles.caption),
               ],
             ),
           ),
+
+          // Montant
           Text(
-            '+${tx.amount} FCFA',
+            '+${course.amount} F',
             style: AppTextStyles.labelMedium
                 .copyWith(color: AppColors.success),
           ),
