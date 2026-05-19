@@ -147,12 +147,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        leading: IconButton(
+        /*leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
               size: 20, color: AppColors.dark),
           onPressed: () =>
               _currentStep > 0 ? _prevStep() : context.goNamed(RouteNames.onboarding),
-        ),
+        ),*/
       ),
       body: PageView(
         controller: _pageController,

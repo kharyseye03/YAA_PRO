@@ -47,7 +47,7 @@ abstract final class RouteNames {
 }
 
 final appRouter = GoRouter(
-  initialLocation: RoutePaths.home,
+  initialLocation: RoutePaths.splash,
   debugLogDiagnostics: false,
   routes: [
     GoRoute(

@@ -2,10 +2,11 @@ import 'dart:ui';
 
 abstract final class AppColors {
   // ── Primary ──────────────────────────────────────────────
-  static const Color primary = Color(0xFF1652F0);
-  static const Color primaryLight = Color(0xFF4D7DF7);
-  static const Color primaryDark = Color(0xFF0E3BB8);
-  static const Color primarySurface = Color(0xFFE8EEFE);
+  static const Color primary = Color(0xFF1A1A2E);
+  static const Color primaryLight = Color(0xFF2A2A45);
+  static const Color primaryDark = Color(0xFF121220);
+  static const Color primarySurface = Color(0xFFF0F1F7);
+  //static const Color primarySurface = Color(0xFFE8EEFE);
 
   // ── Secondary / Accent ───────────────────────────────────
   static const Color secondary = Color(0xFFFF6B35);
@@ -38,7 +39,7 @@ abstract final class AppColors {
   static const Color warningLight = Color(0xFFFEF5E7);
   static const Color error = Color(0xFFE74C3C);
   static const Color errorLight = Color(0xFFFDECEB);
-  static const Color info = Color(0xFF2F80ED);
+  static const Color info = Color(0xFF4F7CFF);
   static const Color infoLight = Color(0xFFE9F0FD);
 
   // ── Delivery Status Colors ───────────────────────────────
