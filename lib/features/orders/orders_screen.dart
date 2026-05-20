@@ -347,68 +347,75 @@ class _OrderCard extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(
                 AppDimens.lg.w, 0, AppDimens.lg.w, AppDimens.md.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Icônes + ligne de connexion ──
-                Column(
-                  children: [
-                    SizedBox(height: 15.h),
-                    // Départ : cercle plein avec anneau extérieur
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 18.r,
-                          height: 18.r,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                                width: 1.5),
-                          ),
-                        ),
-                        Container(
-                          width: 9.r,
-                          height: 9.r,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(width: 1.5, height: 28.h, color: AppColors.grey200),
-                    // Arrivée : pin de localisation
-                    Icon(LucideIcons.mapPin,
-                        color: AppColors.secondary, size: 18.r),
-                  ],
-                ),
-                SizedBox(width: AppDimens.md.w),
-                // ── Textes départ / arrivée ──
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Icônes + ligne flexible ──
+                  Column(
                     children: [
-                      Text('Départ',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.grey500)),
-                      SizedBox(height: 1.h),
-                      Text(order.pickup,
-                          style: AppTextStyles.labelSmall
-                              .copyWith(color: AppColors.dark)),
-                      SizedBox(height: 10.h),
-                      Text('Arrivée',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.grey500)),
-                      SizedBox(height: 1.h),
-                      Text(order.delivery,
-                          style: AppTextStyles.labelSmall
-                              .copyWith(color: AppColors.dark)),
+                      SizedBox(height: 3.h),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 18.r,
+                            height: 18.r,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.3),
+                                  width: 1.5),
+                            ),
+                          ),
+                          Container(
+                            width: 9.r,
+                            height: 9.r,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Container(
+                              width: 1.5, color: AppColors.grey200),
+                        ),
+                      ),
+                      Icon(LucideIcons.mapPin,
+                          color: AppColors.secondary, size: 18.r),
+                      SizedBox(height: 3.h),
                     ],
                   ),
-                ),
-              ],
+                  SizedBox(width: AppDimens.md.w),
+                  // ── Textes départ / arrivée ──
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Départ',
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.grey500)),
+                        SizedBox(height: 2.h),
+                        Text(order.pickup,
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.dark)),
+                        SizedBox(height: 12.h),
+                        Text('Arrivée',
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.grey500)),
+                        SizedBox(height: 2.h),
+                        Text(order.delivery,
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.dark)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           ]), // fin GestureDetector

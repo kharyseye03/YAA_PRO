@@ -102,7 +102,7 @@ class _GainsScreenState extends State<GainsScreen> {
                 padding: EdgeInsets.all(AppDimens.xl.r),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1A1A2E), Color(0xFF0E3BB8)],
+                    colors: [Color(0xFF1A1A2E), Color(0xFF0D1117)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

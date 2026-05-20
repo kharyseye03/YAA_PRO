@@ -57,7 +57,7 @@ abstract final class AppTextStyles {
 
   static TextStyle get bodySmall => TextStyle(
         fontFamily: _fontFamily,
-        fontSize: 12.sp,
+        fontSize: 13.sp,
         fontWeight: FontWeight.w400,
         color: AppColors.grey600,
         height: 1.5,
@@ -82,7 +82,7 @@ abstract final class AppTextStyles {
 
   static TextStyle get labelSmall => TextStyle(
         fontFamily: _fontFamily,
-        fontSize: 12.sp,
+        fontSize: 13.sp,
         fontWeight: FontWeight.w600,
         color: AppColors.grey700,
         height: 1.4,
@@ -100,7 +100,7 @@ abstract final class AppTextStyles {
   // ── Caption & Overline ───────────────────────────────────
   static TextStyle get caption => TextStyle(
         fontFamily: _fontFamily,
-        fontSize: 11.sp,
+        fontSize: 12.sp,
         fontWeight: FontWeight.w400,
         color: AppColors.grey500,
         height: 1.4,
@@ -108,7 +108,7 @@ abstract final class AppTextStyles {
 
   static TextStyle get overline => TextStyle(
         fontFamily: _fontFamily,
-        fontSize: 10.sp,
+        fontSize: 11.sp,
         fontWeight: FontWeight.w600,
         color: AppColors.grey500,
         height: 1.4,

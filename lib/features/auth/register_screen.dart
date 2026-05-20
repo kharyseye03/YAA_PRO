@@ -425,7 +425,10 @@ class _Step1 extends StatelessWidget {
                   ? TextCapitalization.characters
                   : TextCapitalization.none,
               inputFormatters: docType == 'CIN'
-                  ? [FilteringTextInputFormatter.digitsOnly]
+                  ? [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(13),
+                    ]
                   : [
                       FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
                       LengthLimitingTextInputFormatter(9),

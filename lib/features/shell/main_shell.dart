@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:remixicon/remixicon.dart';
 import '../../core/constants/constants.dart';
@@ -7,17 +8,18 @@ import '../orders/orders_screen.dart';
 import '../gains/gains_screen.dart';
 import '../profile/profile_screen.dart';
 
-class MainShell extends StatefulWidget {
+/// Provider global pour l'index du tab actif
+final shellIndexProvider = StateProvider<int>((ref) => 0);
+
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-
-  final List<Widget> _screens = const [
+class _MainShellState extends ConsumerState<MainShell> {
+  static const List<Widget> _screens = [
     HomeScreen(),
     OrdersScreen(),
     GainsScreen(),
@@ -26,16 +28,18 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(shellIndexProvider);
+
     return Scaffold(
       backgroundColor: AppColors.white,
       extendBody: true,
       body: IndexedStack(
-        index: _currentIndex,
+        index: currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: _ProBottomNav(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        currentIndex: currentIndex,
+        onTap: (i) => ref.read(shellIndexProvider.notifier).state = i,
       ),
     );
   }

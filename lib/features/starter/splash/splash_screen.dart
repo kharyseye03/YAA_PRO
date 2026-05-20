@@ -35,7 +35,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(milliseconds: 2500));
+    await Future.delayed(const Duration(milliseconds: 3000));
     if (!mounted) return;
     context.goNamed(RouteNames.onboarding);
   }
@@ -52,33 +52,49 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: AppColors.white,
       body: Stack(
         children: [
-          // Accent décoratif en haut
+          // ── Coin haut-gauche : bracket primary ──────────────
           Positioned(
-            top: -80,
-            right: -80,
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primary.withValues(alpha: 0.06),
+            top: 52,
+            left: 36,
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                        color: AppColors.primary.withValues(alpha: 0.18),
+                        width: 2),
+                    left: BorderSide(
+                        color: AppColors.primary.withValues(alpha: 0.18),
+                        width: 2),
+                  ),
+                ),
               ),
             ),
           ),
-          // Accent décoratif en bas
+          // ── Coin bas-droite : bracket secondary ─────────────
           Positioned(
-            bottom: -60,
-            left: -60,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.secondary.withValues(alpha: 0.07),
+            bottom: 52,
+            right: 36,
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                        color: AppColors.secondary.withValues(alpha: 0.30),
+                        width: 2),
+                    right: BorderSide(
+                        color: AppColors.secondary.withValues(alpha: 0.30),
+                        width: 2),
+                  ),
+                ),
               ),
             ),
           ),
-          // Logo centré avec animation
+          // ── Logo centré avec animation ───────────────────────
           Center(
             child: FadeTransition(
               opacity: _fadeAnim,
@@ -96,20 +112,22 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
-          // Indicateur de chargement en bas
+          // ── Barre de chargement fine en bas ─────────────────
           Positioned(
-            bottom: 60,
+            bottom: 56,
             left: 0,
             right: 0,
             child: FadeTransition(
               opacity: _fadeAnim,
               child: Center(
                 child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: AppColors.primary.withValues(alpha: 0.4),
+                  width: 48,
+                  child: LinearProgressIndicator(
+                    minHeight: 2,
+                    backgroundColor:
+                        AppColors.primary.withValues(alpha: 0.10),
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),

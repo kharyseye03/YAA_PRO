@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'core/theme/app_theme.dart';
@@ -6,6 +7,13 @@ import 'core/constants/constants.dart';
 import 'core/utils/app_router.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Par défaut : icônes sombres sur fond blanc (toutes les pages hors home)
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+  ));
   runApp(const ProviderScope(child: YaaProApp()));
 }
 

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import '../orders/order_detail_screen.dart';
+import '../shell/main_shell.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   static const _order = _OrderData(
@@ -22,8 +25,14 @@ class HomeScreen extends StatelessWidget {
   );
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light, // icônes blanches (Android)
+        statusBarBrightness: Brightness.dark,       // iOS
+      ),
+      child: Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
@@ -47,21 +56,22 @@ class HomeScreen extends StatelessWidget {
           Positioned(
             left: 16.w,
             right: 16.w,
-            bottom: 90.h, // au-dessus du bottom nav flottant
+            bottom: 90.h,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Card "Commandes disponibles" — indépendante
-                _FloatingRow(),
+                _FloatingRow(
+                  onTapAll: () =>
+                      ref.read(shellIndexProvider.notifier).state = 1,
+                ),
                 SizedBox(height: 10.h),
-                // Card commande — indépendante
                 _OrderCard(order: _order),
               ],
             ),
           ),
         ],
       ),
-    );
+    )); // AnnotatedRegion
   }
 }
 
@@ -150,6 +160,9 @@ class _HomeHeader extends StatelessWidget {
 
 // ── Ligne "Commandes disponibles" — card indépendante ──────────
 class _FloatingRow extends StatelessWidget {
+  final VoidCallback onTapAll;
+  const _FloatingRow({required this.onTapAll});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -183,7 +196,7 @@ class _FloatingRow extends StatelessWidget {
               '3',
               style: TextStyle(
                 fontFamily: 'Archivo',
-                fontSize: 11.sp,
+                fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
                 color: AppColors.secondary,
               ),
@@ -191,7 +204,7 @@ class _FloatingRow extends StatelessWidget {
           ),
           const Spacer(),
           GestureDetector(
-            onTap: () {},
+            onTap: onTapAll,
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
               decoration: BoxDecoration(
@@ -374,68 +387,75 @@ class _OrderCard extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(
                 AppDimens.lg.w, 0, AppDimens.lg.w, AppDimens.md.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Icônes + ligne de connexion ──
-                Column(
-                  children: [
-                    SizedBox(height: 15.h), // offset pour aligner avec le nom (pas le label)
-                    // Départ : cercle plein avec anneau extérieur
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 18.r,
-                          height: 18.r,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                                width: 1.5),
-                          ),
-                        ),
-                        Container(
-                          width: 9.r,
-                          height: 9.r,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(width: 1.5, height: 40.h, color: AppColors.grey200),
-                    // Arrivée : pin de localisation
-                    Icon(LucideIcons.mapPin,
-                        color: AppColors.secondary, size: 18.r),
-                  ],
-                ),
-                SizedBox(width: AppDimens.md.w),
-                // ── Textes départ / arrivée ──
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Icônes + ligne flexible ──
+                  Column(
                     children: [
-                      Text('Départ',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.grey500)),
-                      SizedBox(height: 1.h),
-                      Text(order.pickup,
-                          style: AppTextStyles.labelSmall
-                              .copyWith(color: AppColors.dark)),
-                      SizedBox(height: 10.h),
-                      Text('Arrivée',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.grey500)),
-                      SizedBox(height: 1.h),
-                      Text(order.delivery,
-                          style: AppTextStyles.labelSmall
-                              .copyWith(color: AppColors.dark)),
+                      SizedBox(height: 3.h),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 18.r,
+                            height: 18.r,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.3),
+                                  width: 1.5),
+                            ),
+                          ),
+                          Container(
+                            width: 9.r,
+                            height: 9.r,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: Container(
+                              width: 1.5, color: AppColors.grey200),
+                        ),
+                      ),
+                      Icon(LucideIcons.mapPin,
+                          color: AppColors.secondary, size: 18.r),
+                      SizedBox(height: 3.h),
                     ],
                   ),
-                ),
-              ],
+                  SizedBox(width: AppDimens.md.w),
+                  // ── Textes départ / arrivée ──
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Départ',
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.grey500)),
+                        SizedBox(height: 2.h),
+                        Text(order.pickup,
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.dark)),
+                        SizedBox(height: 12.h),
+                        Text('Arrivée',
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.grey500)),
+                        SizedBox(height: 2.h),
+                        Text(order.delivery,
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.dark)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
