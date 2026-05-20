@@ -147,12 +147,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
-        leading: IconButton(
+        /*leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
               size: 20, color: AppColors.dark),
           onPressed: () =>
               _currentStep > 0 ? _prevStep() : context.goNamed(RouteNames.onboarding),
-        ),
+        ),*/
       ),
       body: PageView(
         controller: _pageController,
@@ -425,7 +425,10 @@ class _Step1 extends StatelessWidget {
                   ? TextCapitalization.characters
                   : TextCapitalization.none,
               inputFormatters: docType == 'CIN'
-                  ? [FilteringTextInputFormatter.digitsOnly]
+                  ? [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(13),
+                    ]
                   : [
                       FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
                       LengthLimitingTextInputFormatter(9),
@@ -539,32 +542,31 @@ class _Step2 extends StatelessWidget {
 
             // Sélecteur véhicule
             const _Label('Type de véhicule'),
-            Row(
-              children: [
-                _VehicleCard(
-                  icon: Icons.pedal_bike_rounded,
-                  label: 'Vélo',
-                  selected: vehicleType == 'VELO',
-                  color: AppColors.success,
-                  onTap: () => onVehicleTypeChanged('VELO'),
-                ),
-                const SizedBox(width: AppDimens.md),
-                _VehicleCard(
-                  icon: Icons.two_wheeler_rounded,
-                  label: 'Moto',
-                  selected: vehicleType == 'MOTO',
-                  color: AppColors.secondary,
-                  onTap: () => onVehicleTypeChanged('MOTO'),
-                ),
-                const SizedBox(width: AppDimens.md),
-                _VehicleCard(
-                  icon: Icons.directions_car_rounded,
-                  label: 'Voiture',
-                  selected: vehicleType == 'VOITURE',
-                  color: AppColors.primary,
-                  onTap: () => onVehicleTypeChanged('VOITURE'),
-                ),
-              ],
+            _VehicleCard(
+              icon: Icons.pedal_bike_rounded,
+              label: 'Vélo',
+              description: 'Livraisons légères, rapides et écologiques',
+              selected: vehicleType == 'VELO',
+              color: AppColors.success,
+              onTap: () => onVehicleTypeChanged('VELO'),
+            ),
+            const SizedBox(height: AppDimens.md),
+            _VehicleCard(
+              icon: Icons.two_wheeler_rounded,
+              label: 'Moto',
+              description: 'Livraisons urbaines rapides et flexibles',
+              selected: vehicleType == 'MOTO',
+              color: AppColors.secondary,
+              onTap: () => onVehicleTypeChanged('MOTO'),
+            ),
+            const SizedBox(height: AppDimens.md),
+            _VehicleCard(
+              icon: Icons.directions_car_rounded,
+              label: 'Voiture',
+              description: 'Livraisons volumineuses et longues distances',
+              selected: vehicleType == 'VOITURE',
+              color: AppColors.primary,
+              onTap: () => onVehicleTypeChanged('VOITURE'),
             ),
             const SizedBox(height: AppDimens.xl),
 
@@ -907,6 +909,7 @@ class _DocToggle extends StatelessWidget {
 class _VehicleCard extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String description;
   final bool selected;
   final Color color;
   final VoidCallback onTap;
@@ -914,6 +917,7 @@ class _VehicleCard extends StatelessWidget {
   const _VehicleCard({
     required this.icon,
     required this.label,
+    required this.description,
     required this.selected,
     required this.color,
     required this.onTap,
@@ -921,34 +925,77 @@ class _VehicleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: AppDimens.lg),
-          decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.08) : AppColors.white,
-            borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-            border: Border.all(
-              color: selected ? color : AppColors.grey300,
-              width: selected ? 1.5 : 1,
-            ),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.all(AppDimens.lg),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.06) : AppColors.white,
+          borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+          border: Border.all(
+            color: selected ? color : AppColors.grey200,
+            width: selected ? 2 : 1,
           ),
-          child: Column(
-            children: [
-              Icon(icon,
-                  color: selected ? color : AppColors.grey400,
-                  size: AppDimens.iconXl),
-              const SizedBox(height: AppDimens.xs),
-              Text(
-                label,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: selected ? color : AppColors.grey500,
+        ),
+        child: Row(
+          children: [
+            // Icône avec fond coloré
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: selected ? color : AppColors.grey100,
+                borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+              ),
+              child: Icon(
+                icon,
+                color: selected ? AppColors.white : AppColors.grey400,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: AppDimens.lg),
+            // Label + description
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: selected ? color : AppColors.dark,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.grey500),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppDimens.md),
+            // Check indicator
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: selected ? color : AppColors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? color : AppColors.grey300,
+                  width: 1.5,
                 ),
               ),
-            ],
-          ),
+              child: selected
+                  ? const Icon(Icons.check_rounded,
+                      color: AppColors.white, size: 13)
+                  : null,
+            ),
+          ],
         ),
       ),
     );

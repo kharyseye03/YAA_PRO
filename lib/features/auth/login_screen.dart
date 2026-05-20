@@ -1,9 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import 'providers/auth_notifier.dart';
+
+// ── Label avec astérisque (même style que register) ─────────────
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          text: text,
+          style: AppTextStyles.labelSmall.copyWith(color: AppColors.grey800),
+          children: const [
+            TextSpan(
+              text: ' *',
+              style: TextStyle(
+                  color: AppColors.secondary, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── InputDecoration (même style que register) ────────────────────
+InputDecoration _inputDeco({String? hint}) => InputDecoration(
+      hintText: hint,
+      contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppDimens.lg, vertical: AppDimens.lg),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        borderSide: const BorderSide(color: AppColors.grey300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        borderSide: const BorderSide(color: AppColors.grey300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+      ),
+      filled: true,
+      fillColor: AppColors.white,
+    );
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -40,62 +96,71 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              size: 20, color: AppColors.dark),
-          onPressed: () => context.goNamed(RouteNames.onboarding),
-        ),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.screenPadding),
+          padding: EdgeInsets.symmetric(
+              horizontal: AppDimens.screenPadding.w),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: AppDimens.lg),
-
-                // Titre
-                Text('Bon retour !', style: AppTextStyles.h2),
-                const SizedBox(height: AppDimens.sm),
-                Text(
-                  'Connectez-vous pour accéder à votre espace livreur.',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.grey600),
+                // ── Logo ────────────────────────────────────
+                Center(
+                  child: Column(
+                    children: [
+                     Image.asset(
+                          'assets/images/logo-pro3.jpeg',
+                          width: 200.w,
+                          height: 200.h,
+                     ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppDimens.xxxl),
 
-                // Email
+                // ── Titre ───────────────────────────────────
+                RichText(
+                  text: TextSpan(
+                    text: 'Bon retour\n',
+                    style: AppTextStyles.h2,
+                    children: [
+                      TextSpan(
+                        text: 'chez vous 👋',
+                        style: AppTextStyles.h2
+                            .copyWith(color: AppColors.secondary),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: AppDimens.xs.h),
+                Text(
+                  'Connectez-vous pour accéder à votre espace.',
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.grey600),
+                ),
+
+                SizedBox(height: AppDimens.xxl.h),
+
+                // ── Email ───────────────────────────────────
+                const _Label('Adresse email'),
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Adresse email',
-                    hintText: 'exemple@email.com',
-                    prefixIcon: Icon(Icons.email_outlined,
-                        color: AppColors.grey500),
-                  ),
+                  decoration: _inputDeco(hint: 'exemple@email.com'),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Email requis';
                     if (!v.contains('@')) return 'Email invalide';
                     return null;
                   },
                 ),
-                const SizedBox(height: AppDimens.lg),
+                SizedBox(height: AppDimens.lg.h),
 
-                // Mot de passe
+                // ── Mot de passe ────────────────────────────
+                const _Label('Mot de passe'),
                 TextFormField(
                   controller: _passwordCtrl,
                   obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: 'Mot de passe',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded,
-                        color: AppColors.grey500),
+                  decoration: _inputDeco(hint: 'Votre mot de passe').copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
@@ -111,30 +176,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   validator: (v) =>
                       v == null || v.isEmpty ? 'Mot de passe requis' : null,
                 ),
-                const SizedBox(height: AppDimens.md),
+                SizedBox(height: AppDimens.md.h),
 
-                // Mot de passe oublié
+                // ── Mot de passe oublié ─────────────────────
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () =>
+                  child: GestureDetector(
+                    onTap: () =>
                         context.goNamed(RouteNames.forgotPassword),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
                     child: Text(
                       'Mot de passe oublié ?',
-                      style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.primary),
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.primary),
                     ),
                   ),
                 ),
 
-                // Erreur
+                // ── Erreur ──────────────────────────────────
                 if (state.error != null) ...[
-                  const SizedBox(height: AppDimens.lg),
+                  SizedBox(height: AppDimens.lg.h),
                   Container(
                     padding: const EdgeInsets.all(AppDimens.md),
                     decoration: BoxDecoration(
@@ -159,9 +219,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ],
 
-                const SizedBox(height: AppDimens.xxxl),
+                SizedBox(height: AppDimens.xxxl.h),
 
-                // Bouton connexion
+                // ── Bouton connexion ────────────────────────
                 SizedBox(
                   width: double.infinity,
                   height: AppDimens.buttonHeight,
@@ -179,27 +239,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: AppDimens.xl),
+                SizedBox(height: AppDimens.lg.h),
 
-                // Lien inscription
+                // ── Lien inscription ────────────────────────
                 Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Pas encore de compte ? ',
-                          style: AppTextStyles.bodyMedium
-                              .copyWith(color: AppColors.grey600)),
+                      Text(
+                        'Pas encore de compte ? ',
+                        style: AppTextStyles.bodyMedium
+                            .copyWith(color: AppColors.grey600),
+                      ),
                       GestureDetector(
                         onTap: () => context.goNamed(RouteNames.register),
                         child: Text(
                           'S\'inscrire',
-                          style: AppTextStyles.labelMedium.copyWith(
-                              color: AppColors.primary),
+                          style: AppTextStyles.labelMedium
+                              .copyWith(color: AppColors.primary),
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                SizedBox(height: AppDimens.xl.h),
               ],
             ),
           ),

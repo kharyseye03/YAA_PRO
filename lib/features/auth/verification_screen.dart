@@ -26,6 +26,12 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
   void initState() {
     super.initState();
     _startTimer();
+    for (final c in _controllers) {
+      c.addListener(() => setState(() {}));
+    }
+    for (final f in _focusNodes) {
+      f.addListener(() => setState(() {}));
+    }
   }
 
   void _startTimer() {
@@ -66,7 +72,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
     if (value.isEmpty && index > 0) {
       _focusNodes[index - 1].requestFocus();
     }
-    if (_otp.length == 6) { _verify(); }
+    if (_otp.length == 6) _verify();
   }
 
   @override
@@ -86,19 +92,35 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppDimens.screenPadding),
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: AppDimens.lg),
+
+              // Icône illustrative
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.mark_email_read_outlined,
+                  color: AppColors.primary,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: AppDimens.xl),
+
               Text('Vérification', style: AppTextStyles.h2),
               const SizedBox(height: AppDimens.sm),
               RichText(
                 text: TextSpan(
-                  text: 'Un code à 6 chiffres a été envoyé à ',
+                  text: 'Code envoyé à ',
                   style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.grey600),
+                      .copyWith(color: AppColors.grey500),
                   children: [
                     TextSpan(
                       text: widget.email,
@@ -110,34 +132,48 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
               ),
               const SizedBox(height: AppDimens.xxxl),
 
-              // Champs OTP
+              // Boxes OTP
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(6, (i) {
+                  final filled = _controllers[i].text.isNotEmpty;
                   return SizedBox(
-                    width: 46,
-                    height: 56,
+                    width: 48,
+                    height: 60,
                     child: TextFormField(
                       controller: _controllers[i],
                       focusNode: _focusNodes[i],
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
                       maxLength: 1,
-                      style: AppTextStyles.h3,
+                      style: AppTextStyles.h3.copyWith(
+                        color: AppColors.primary,
+                      ),
                       decoration: InputDecoration(
                         counterText: '',
                         contentPadding: EdgeInsets.zero,
+                        filled: true,
+                        fillColor: filled
+                            ? AppColors.primary.withValues(alpha: 0.08)
+                            : AppColors.grey100,
                         border: OutlineInputBorder(
                           borderRadius:
                               BorderRadius.circular(AppDimens.radiusMd),
-                          borderSide: const BorderSide(
-                              color: AppColors.grey300),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusMd),
+                          borderSide: filled
+                              ? const BorderSide(
+                                  color: AppColors.primary, width: 1.5)
+                              : BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius:
                               BorderRadius.circular(AppDimens.radiusMd),
                           borderSide: const BorderSide(
-                              color: AppColors.primary, width: 1.5),
+                              color: AppColors.primary, width: 2),
                         ),
                       ),
                       onChanged: (v) => _onChanged(v, i),
@@ -146,14 +182,15 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                 }),
               ),
 
-              if (state.error != null) ...[
-                const SizedBox(height: AppDimens.lg),
+              const SizedBox(height: AppDimens.xl),
+
+              // Erreur
+              if (state.error != null)
                 Container(
                   padding: const EdgeInsets.all(AppDimens.md),
                   decoration: BoxDecoration(
                     color: AppColors.errorLight,
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.radiusMd),
+                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
                   ),
                   child: Row(
                     children: [
@@ -168,26 +205,47 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                     ],
                   ),
                 ),
-              ],
 
-              const SizedBox(height: AppDimens.xxl),
+              const SizedBox(height: AppDimens.xl),
 
-              // Renvoyer
+              // Renvoyer le code
               Center(
                 child: _secondsLeft > 0
-                    ? Text(
-                        'Renvoyer le code dans $_secondsLeft s',
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.grey500),
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Renvoyer dans ',
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.grey500),
+                          ),
+                          Text(
+                            '${_secondsLeft}s',
+                            style: AppTextStyles.labelMedium
+                                .copyWith(color: AppColors.primary),
+                          ),
+                        ],
                       )
-                    : TextButton(
-                        onPressed: () {
+                    : GestureDetector(
+                        onTap: () {
                           ref
                               .read(authProvider.notifier)
                               .resendCode(email: widget.email);
                           _startTimer();
                         },
-                        child: const Text('Renvoyer le code'),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.refresh_rounded,
+                                size: 16, color: AppColors.primary),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Renvoyer le code',
+                              style: AppTextStyles.labelMedium
+                                  .copyWith(color: AppColors.primary),
+                            ),
+                          ],
+                        ),
                       ),
               ),
 
@@ -207,7 +265,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2.5, color: AppColors.white),
                         )
-                      : const Text('Vérifier'),
+                      : const Text('Confirmer'),
                 ),
               ),
               const SizedBox(height: AppDimens.xl),
