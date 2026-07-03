@@ -1,10 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import 'providers/auth_notifier.dart';
+import 'providers/driver_provider.dart';
+
+// ── Formatter téléphone : XX XXX XX XX (max 9 chiffres) ────────
+class _PhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 9) return oldValue;
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i == 2 || i == 5 || i == 7) buffer.write(' ');
+      buffer.write(digits[i]);
+    }
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 // ── Label avec astérisque (même style que register) ─────────────
 class _Label extends StatelessWidget {
@@ -70,13 +93,13 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
@@ -84,10 +107,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     final success = await ref.read(authProvider.notifier).login(
-          username: _emailCtrl.text.trim(),
+          username: _phoneCtrl.text.replaceAll(' ', ''),
           password: _passwordCtrl.text,
         );
-    if (success && mounted) context.goNamed(RouteNames.home);
+    if (success && mounted) {
+      ref.invalidate(driverDetailProvider);
+      context.goNamed(RouteNames.home);
+    }
   }
 
   @override
@@ -141,15 +167,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 SizedBox(height: AppDimens.xxl.h),
 
-                // ── Email ───────────────────────────────────
-                const _Label('Adresse email'),
+                // ── Téléphone ───────────────────────────────
+                const _Label('Numéro de téléphone'),
                 TextFormField(
-                  controller: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDeco(hint: 'exemple@email.com'),
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [_PhoneFormatter()],
+                  decoration: _inputDeco(hint: '77 123 45 67'),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Email requis';
-                    if (!v.contains('@')) return 'Email invalide';
+                    final digits = v?.replaceAll(' ', '') ?? '';
+                    if (digits.isEmpty) return 'Téléphone requis';
+                    if (digits.length != 9) return '9 chiffres requis';
                     return null;
                   },
                 ),

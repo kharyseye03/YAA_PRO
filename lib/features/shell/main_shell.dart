@@ -5,6 +5,7 @@ import 'package:remixicon/remixicon.dart';
 import '../../core/constants/constants.dart';
 import '../home/home_screen.dart';
 import '../orders/orders_screen.dart';
+import '../orders/providers/orders_provider.dart';
 import '../gains/gains_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -29,6 +30,8 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(shellIndexProvider);
+    final ordersCount =
+        ref.watch(availableOrdersProvider).valueOrNull?.length ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -39,6 +42,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       ),
       bottomNavigationBar: _ProBottomNav(
         currentIndex: currentIndex,
+        ordersBadge: ordersCount > 0 ? '$ordersCount' : null,
         onTap: (i) => ref.read(shellIndexProvider.notifier).state = i,
       ),
     );
@@ -48,9 +52,14 @@ class _MainShellState extends ConsumerState<MainShell> {
 // ── Bottom Nav dark pill (style YAA client) ─────────────────────
 class _ProBottomNav extends StatelessWidget {
   final int currentIndex;
+  final String? ordersBadge;
   final ValueChanged<int> onTap;
 
-  const _ProBottomNav({required this.currentIndex, required this.onTap});
+  const _ProBottomNav({
+    required this.currentIndex,
+    required this.ordersBadge,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +92,7 @@ class _ProBottomNav extends StatelessWidget {
               inactiveIcon: RemixIcons.shopping_bag_2_line,
               isActive: currentIndex == 1,
               onTap: () => onTap(1),
-              badge: '3',
+              badge: ordersBadge,
             ),
             _NavItem(
               icon: RemixIcons.wallet_3_fill,

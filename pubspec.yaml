@@ -19,11 +19,15 @@ dependencies:
   go_router: ^14.8.1
 
   # ── Network ─────────────────────────────────────────────
-  dio: ^5.7.0
   http: ^1.2.2
+  http_parser: ^4.0.2
 
   # ── Media ───────────────────────────────────────────────
   image_picker: ^1.1.2
+
+  # ── Location & Maps ─────────────────────────────────────
+  geolocator: ^13.0.2
+  google_maps_flutter: ^2.9.0
 
   # ── Data & Serialization ────────────────────────────────
   freezed_annotation: ^2.4.4

@@ -1,91 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
+import '../../model/order/commande_livraison.dart';
 import 'order_detail_screen.dart';
-
-// ── Données statiques ───────────────────────────────────────────
-class _Order {
-  final String id;
-  final String amount;
-  final String distance;
-  final String estimatedTime;
-  final String pickup;
-  final String pickupDetail;
-  final String delivery;
-  final String deliveryDetail;
-  final int timerSeconds;
-  final String category;
-
-  const _Order({
-    required this.id,
-    required this.amount,
-    required this.distance,
-    required this.estimatedTime,
-    required this.pickup,
-    required this.pickupDetail,
-    required this.delivery,
-    required this.deliveryDetail,
-    required this.timerSeconds,
-    required this.category,
-  });
-}
-
-const _mockOrders = [
-  _Order(
-    id: '1',
-    amount: '2 300',
-    distance: '3.2 km',
-    estimatedTime: '12 min',
-    pickup: 'Marché Sandaga',
-    pickupDetail: 'Plateau, Dakar',
-    delivery: 'Cité Keur Gorgui',
-    deliveryDetail: 'Mermoz, Dakar',
-    timerSeconds: 45,
-    category: 'Restaurant',
-  ),
-  _Order(
-    id: '2',
-    amount: '3 800',
-    distance: '5.7 km',
-    estimatedTime: '18 min',
-    pickup: 'Point E',
-    pickupDetail: 'Fann, Dakar',
-    delivery: 'Les Almadies',
-    deliveryDetail: 'Ngor, Dakar',
-    timerSeconds: 112,
-    category: 'Boutique',
-  ),
-  _Order(
-    id: '3',
-    amount: '1 500',
-    distance: '1.8 km',
-    estimatedTime: '8 min',
-    pickup: 'HLM Grand Yoff',
-    pickupDetail: 'Grand Yoff, Dakar',
-    delivery: 'Parcelles Assainies',
-    deliveryDetail: 'Parcelles U15, Dakar',
-    timerSeconds: 78,
-    category: 'Pharmacie',
-  ),
-];
+import 'providers/orders_provider.dart';
 
 // ── Écran commandes ─────────────────────────────────────────────
-class OrdersScreen extends StatefulWidget {
+class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
 
   @override
-  State<OrdersScreen> createState() => _OrdersScreenState();
+  ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-class _OrdersScreenState extends State<OrdersScreen> {
+class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   int _filterIndex = 0;
   final _filters = ['Toutes', 'Proches', 'Bien payées'];
 
   @override
   Widget build(BuildContext context) {
+    final ordersAsync = ref.watch(availableOrdersProvider);
+    final count = ordersAsync.valueOrNull?.length;
+
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       body: SafeArea(
@@ -106,7 +46,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   Text('Commandes', style: AppTextStyles.h3),
                   SizedBox(height: 2.h),
                   Text(
-                    '3 disponibles près de vous',
+                    count != null
+                        ? '$count disponible${count > 1 ? 's' : ''} près de vous'
+                        : 'Recherche de commandes...',
                     style: AppTextStyles.bodySmall,
                   ),
                 ],
@@ -156,13 +98,42 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
             // Liste commandes
             Expanded(
-              child: ListView.separated(
-                padding: EdgeInsets.symmetric(
-                    horizontal: AppDimens.screenPadding.w),
-                itemCount: _mockOrders.length,
-                separatorBuilder: (_, __) => SizedBox(height: AppDimens.md.h),
-                itemBuilder: (context, i) =>
-                    _OrderCard(order: _mockOrders[i]),
+              child: RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: () async =>
+                    ref.invalidate(availableOrdersProvider),
+                child: ordersAsync.when(
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.primary),
+                  ),
+                  error: (e, _) => _MessageState(
+                    icon: LucideIcons.wifiOff,
+                    message:
+                        e.toString().replaceFirst('Exception: ', ''),
+                    onRetry: () =>
+                        ref.invalidate(availableOrdersProvider),
+                  ),
+                  data: (orders) => orders.isEmpty
+                      ? _MessageState(
+                          icon: LucideIcons.packageOpen,
+                          message:
+                              'Aucune commande disponible pour le moment.',
+                          onRetry: () =>
+                              ref.invalidate(availableOrdersProvider),
+                        )
+                      : ListView.separated(
+                          physics:
+                              const AlwaysScrollableScrollPhysics(),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: AppDimens.screenPadding.w),
+                          itemCount: orders.length,
+                          separatorBuilder: (_, __) =>
+                              SizedBox(height: AppDimens.md.h),
+                          itemBuilder: (context, i) =>
+                              _OrderCard(order: orders[i]),
+                        ),
+                ),
               ),
             ),
           ],
@@ -172,10 +143,64 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 }
 
+// ── État message (vide / erreur) ────────────────────────────────
+class _MessageState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final VoidCallback onRetry;
+
+  const _MessageState({
+    required this.icon,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // ListView pour rester compatible avec le pull-to-refresh
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: 120.h),
+        Icon(icon, size: 48.r, color: AppColors.grey300),
+        SizedBox(height: AppDimens.lg.h),
+        Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: AppDimens.screenPadding.w * 2),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style:
+                AppTextStyles.bodyMedium.copyWith(color: AppColors.grey500),
+          ),
+        ),
+        SizedBox(height: AppDimens.lg.h),
+        Center(
+          child: TextButton(
+            onPressed: onRetry,
+            child: Text(
+              'Réessayer',
+              style: AppTextStyles.labelMedium
+                  .copyWith(color: AppColors.primary),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ── Carte commande ──────────────────────────────────────────────
 class _OrderCard extends StatelessWidget {
-  final _Order order;
+  final CommandeLivraison order;
   const _OrderCard({required this.order});
+
+  // ⏳ En attendant que le back fournisse ces champs
+  static const _mockAmount = '2 300';
+  static const _mockDistance = '3.2 km';
+  static const _mockTime = '12 min';
+  static const _mockTimerSeconds = 45;
+  static const _mockCategory = 'Restaurant';
 
   static ({Color bg, Color text}) _catColors(String cat) =>
       switch (cat.toLowerCase()) {
@@ -189,27 +214,27 @@ class _OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mins = order.timerSeconds ~/ 60;
-    final secs = order.timerSeconds % 60;
+    const mins = _mockTimerSeconds ~/ 60;
+    const secs = _mockTimerSeconds % 60;
     final timerStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
-    final timerUrgent = order.timerSeconds < 60;
-    final catColor = _catColors(order.category);
+    const timerUrgent = _mockTimerSeconds < 60;
+    final catColor = _catColors(_mockCategory);
 
     final args = OrderDetailArgs(
-      id: '#CMD-2024-00${order.id}',
-      amount: order.amount,
-      distance: order.distance,
-      estimatedTime: order.estimatedTime,
-      pickup: order.pickup,
-      delivery: order.delivery,
-      timerSeconds: order.timerSeconds,
-      category: order.category,
-      merchantName: order.category,
-      merchantAddress: order.pickup,
-      merchantPhone: '+221 33 821 45 67',
-      clientName: 'Aissatou Diallo',
-      clientPhone: '+221 77 456 78 90',
-      clientNotes: 'Appeler à l\'arrivée.',
+      id: '#${order.shortRef}',
+      amount: _mockAmount,
+      distance: _mockDistance,
+      estimatedTime: _mockTime,
+      pickup: order.structureName,
+      delivery: order.adresseLivraison,
+      timerSeconds: _mockTimerSeconds,
+      category: _mockCategory,
+      merchantName: order.structureName,
+      merchantAddress: order.structureAdresse,
+      merchantPhone: order.structureTelephone,
+      clientName: 'Client',
+      clientPhone: order.telephoneClient,
+      clientNotes: order.description,
     );
 
     return Container(
@@ -250,7 +275,7 @@ class _OrderCard extends StatelessWidget {
                         BorderRadius.circular(AppDimens.radiusFull),
                   ),
                   child: Text(
-                    order.category,
+                    _mockCategory,
                     style: TextStyle(
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
@@ -305,7 +330,7 @@ class _OrderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  '${order.amount} FCFA',
+                  '$_mockAmount FCFA',
                   style: AppTextStyles.h4
                       .copyWith(color: AppColors.dark),
                 ),
@@ -320,7 +345,7 @@ class _OrderCard extends StatelessWidget {
                 ),
                 SizedBox(width: AppDimens.sm.w),
                 Text(
-                  order.distance,
+                  _mockDistance,
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.grey500),
                 ),
@@ -335,7 +360,7 @@ class _OrderCard extends StatelessWidget {
                 ),
                 SizedBox(width: AppDimens.sm.w),
                 Text(
-                  order.estimatedTime,
+                  _mockTime,
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.grey500),
                 ),
@@ -400,7 +425,7 @@ class _OrderCard extends StatelessWidget {
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
-                        Text(order.pickup,
+                        Text(order.structureName,
                             style: AppTextStyles.labelSmall
                                 .copyWith(color: AppColors.dark)),
                         SizedBox(height: 12.h),
@@ -408,7 +433,7 @@ class _OrderCard extends StatelessWidget {
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
-                        Text(order.delivery,
+                        Text(order.adresseLivraison,
                             style: AppTextStyles.labelSmall
                                 .copyWith(color: AppColors.dark)),
                       ],

@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Fichiers de config sensibles (cles API, URLs backend)
+lib/config/api/api_config.dart
+lib/config/maps/maps_config.dart

@@ -3,29 +3,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
+import '../../model/order/commande_livraison.dart';
+import '../auth/providers/driver_provider.dart';
 import '../orders/order_detail_screen.dart';
+import '../orders/providers/orders_provider.dart';
 import '../shell/main_shell.dart';
+import 'providers/location_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  static const _order = _OrderData(
-    amount: '2 300',
-    distance: '3.2 km',
-    estimatedTime: '12 min',
-    pickup: 'Marché Sandaga',
-    pickupDetail: 'Plateau, Dakar',
-    delivery: 'Cité Keur Gorgui',
-    deliveryDetail: 'Mermoz, Dakar',
-    timerSeconds: 45,
-    category: 'Restaurant',
-  );
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Dernière commande arrivée = id le plus élevé
+    final orders = ref.watch(availableOrdersProvider).valueOrNull;
+    final latestOrder = orders == null || orders.isEmpty
+        ? null
+        : orders.reduce((a, b) => a.id > b.id ? a : b);
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -37,11 +36,8 @@ class HomeScreen extends ConsumerWidget {
       body: Stack(
         children: [
           // ── Map plein écran ───────────────────────────────
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/map2.png',
-              fit: BoxFit.cover,
-            ),
+          const Positioned.fill(
+            child: _DashboardMap(),
           ),
 
           // ── Header dark arrondi en bas ────────────────────
@@ -61,11 +57,18 @@ class HomeScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _FloatingRow(
+                  count: ref
+                          .watch(availableOrdersProvider)
+                          .valueOrNull
+                          ?.length ??
+                      0,
                   onTapAll: () =>
                       ref.read(shellIndexProvider.notifier).state = 1,
                 ),
-                SizedBox(height: 10.h),
-                _OrderCard(order: _order),
+                if (latestOrder != null) ...[
+                  SizedBox(height: 10.h),
+                  _OrderCard(order: latestOrder),
+                ],
               ],
             ),
           ),
@@ -75,10 +78,104 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ── Header dark (couleur bottom nav) ───────────────────────────
-class _HomeHeader extends StatelessWidget {
+// ── Carte Google Maps du dashboard ──────────────────────────────
+class _DashboardMap extends ConsumerStatefulWidget {
+  const _DashboardMap();
+
+  @override
+  ConsumerState<_DashboardMap> createState() => _DashboardMapState();
+}
+
+class _DashboardMapState extends ConsumerState<_DashboardMap> {
+  GoogleMapController? _controller;
+
+  // Dakar par défaut en attendant la position GPS
+  static const _fallbackCamera = CameraPosition(
+    target: LatLng(14.6928, -17.4467),
+    zoom: 12,
+  );
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Recentre la carte quand la position arrive/change
+    ref.listen(currentLocationProvider, (previous, next) {
+      final loc = next.valueOrNull;
+      if (loc != null && _controller != null) {
+        _controller!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target:
+                  LatLng(loc.position.latitude, loc.position.longitude),
+              zoom: 15.5,
+            ),
+          ),
+        );
+      }
+    });
+
+    final loc = ref.watch(currentLocationProvider).valueOrNull;
+    final target = loc != null
+        ? LatLng(loc.position.latitude, loc.position.longitude)
+        : null;
+    final initialCamera = target != null
+        ? CameraPosition(target: target, zoom: 15.5)
+        : _fallbackCamera;
+
+    return GoogleMap(
+      initialCameraPosition: initialCamera,
+      onMapCreated: (controller) => _controller = controller,
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
+      compassEnabled: false,
+      mapToolbarEnabled: false,
+      buildingsEnabled: false,
+      // ── Position bien visible : pin bleu + halo ──
+      markers: {
+        if (target != null)
+          Marker(
+            markerId: const MarkerId('me'),
+            position: target,
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure),
+            anchor: const Offset(0.5, 1),
+          ),
+      },
+      circles: {
+        if (target != null)
+          Circle(
+            circleId: const CircleId('me_halo'),
+            center: target,
+            radius: 60,
+            fillColor: AppColors.info.withValues(alpha: 0.15),
+            strokeColor: AppColors.info.withValues(alpha: 0.4),
+            strokeWidth: 1,
+          ),
+      },
+    );
+  }
+}
+
+// ── Header dark (couleur bottom nav) ───────────────────────────
+class _HomeHeader extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final driver = ref.watch(driverDetailProvider).valueOrNull;
+    final greeting =
+        driver != null ? 'Bonjour, ${driver.firstName} 👋' : 'Bonjour 👋';
+    final location = ref.watch(currentLocationProvider);
+    final locationLabel = location.when(
+      data: (loc) => loc.label,
+      loading: () => 'Localisation...',
+      error: (_, __) => 'Position indisponible',
+    );
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF1A1A2E),
@@ -102,25 +199,34 @@ class _HomeHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Bonjour, Mame 👋',
+                  greeting,
                   style: AppTextStyles.h4.copyWith(color: AppColors.white),
                 ),
                 SizedBox(height: 4.h),
-                Row(
-                  children: [
-                    Icon(LucideIcons.mapPin,
-                        color: AppColors.white, size: 13.r),
-                    SizedBox(width: 4.w),
-                    Text(
-                      'Dakar, Sénégal',
-                      style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.white.withValues(alpha: 0.6)),
-                    ),
-                    SizedBox(width: 2.w),
-                    Icon(LucideIcons.chevronDown,
-                        color: AppColors.white.withValues(alpha: 0.6),
-                        size: 12.r),
-                  ],
+                GestureDetector(
+                  onTap: () => ref.invalidate(currentLocationProvider),
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.mapPin,
+                          color: AppColors.white, size: 13.r),
+                      SizedBox(width: 4.w),
+                      Flexible(
+                        child: Text(
+                          locationLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.bodySmall.copyWith(
+                              color:
+                                  AppColors.white.withValues(alpha: 0.6)),
+                        ),
+                      ),
+                      SizedBox(width: 2.w),
+                      Icon(LucideIcons.chevronDown,
+                          color: AppColors.white.withValues(alpha: 0.6),
+                          size: 12.r),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -160,8 +266,9 @@ class _HomeHeader extends StatelessWidget {
 
 // ── Ligne "Commandes disponibles" — card indépendante ──────────
 class _FloatingRow extends StatelessWidget {
+  final int count;
   final VoidCallback onTapAll;
-  const _FloatingRow({required this.onTapAll});
+  const _FloatingRow({required this.count, required this.onTapAll});
 
   @override
   Widget build(BuildContext context) {
@@ -184,24 +291,25 @@ class _FloatingRow extends StatelessWidget {
           Text('Commandes disponibles',
               style: AppTextStyles.labelMedium),
           SizedBox(width: AppDimens.sm.w),
-          Container(
-            padding:
-                EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
-            decoration: BoxDecoration(
-              color: AppColors.secondary.withValues(alpha: 0.12),
-              borderRadius:
-                  BorderRadius.circular(AppDimens.radiusFull),
-            ),
-            child: Text(
-              '3',
-              style: TextStyle(
-                fontFamily: 'Archivo',
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-                color: AppColors.secondary,
+          if (count > 0)
+            Container(
+              padding:
+                  EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withValues(alpha: 0.12),
+                borderRadius:
+                    BorderRadius.circular(AppDimens.radiusFull),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontFamily: 'Archivo',
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.secondary,
+                ),
               ),
             ),
-          ),
           const Spacer(),
           GestureDetector(
             onTap: onTapAll,
@@ -236,8 +344,15 @@ class _FloatingRow extends StatelessWidget {
 
 // ── Carte commande — card indépendante ─────────────────────────
 class _OrderCard extends StatelessWidget {
-  final _OrderData order;
+  final CommandeLivraison order;
   const _OrderCard({required this.order});
+
+  // ⏳ En attendant que le back fournisse ces champs
+  static const _mockAmount = '2 300';
+  static const _mockDistance = '3.2 km';
+  static const _mockTime = '12 min';
+  static const _mockTimerSeconds = 45;
+  static const _mockCategory = 'Restaurant';
 
   /// Retourne (bg, text) selon la catégorie
   static ({Color bg, Color text}) _catColors(String cat) =>
@@ -252,27 +367,27 @@ class _OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mins = order.timerSeconds ~/ 60;
-    final secs = order.timerSeconds % 60;
+    const mins = _mockTimerSeconds ~/ 60;
+    const secs = _mockTimerSeconds % 60;
     final timerStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
-    final timerUrgent = order.timerSeconds < 60;
-    final catColor = _catColors(order.category);
+    const timerUrgent = _mockTimerSeconds < 60;
+    final catColor = _catColors(_mockCategory);
 
     final args = OrderDetailArgs(
-      id: '#CMD-2024-001',
-      amount: order.amount,
-      distance: order.distance,
-      estimatedTime: order.estimatedTime,
-      pickup: order.pickup,
-      delivery: order.delivery,
-      timerSeconds: order.timerSeconds,
-      category: order.category,
-      merchantName: 'Chez Fatou Restaurant',
-      merchantAddress: 'Marché Sandaga, Plateau, Dakar',
-      merchantPhone: '+221 33 821 45 67',
-      clientName: 'Aissatou Diallo',
-      clientPhone: '+221 77 456 78 90',
-      clientNotes: 'Appeler à l\'arrivée. Code portail : 1234',
+      id: '#${order.shortRef}',
+      amount: _mockAmount,
+      distance: _mockDistance,
+      estimatedTime: _mockTime,
+      pickup: order.structureName,
+      delivery: order.adresseLivraison,
+      timerSeconds: _mockTimerSeconds,
+      category: _mockCategory,
+      merchantName: order.structureName,
+      merchantAddress: order.structureAdresse,
+      merchantPhone: order.structureTelephone,
+      clientName: 'Client',
+      clientPhone: order.telephoneClient,
+      clientNotes: order.description,
     );
 
     return Container(
@@ -312,7 +427,7 @@ class _OrderCard extends StatelessWidget {
                         BorderRadius.circular(AppDimens.radiusFull),
                   ),
                   child: Text(
-                    order.category,
+                    _mockCategory,
                     style: TextStyle(
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
@@ -364,19 +479,19 @@ class _OrderCard extends StatelessWidget {
                 horizontal: AppDimens.lg.w, vertical: AppDimens.sm.h),
             child: Row(
               children: [
-                Text('${order.amount} FCFA',
+                Text('$_mockAmount FCFA',
                     style: AppTextStyles.h4
                         .copyWith(color: AppColors.black)),
                 SizedBox(width: AppDimens.sm.w),
                 _Dot(),
                 SizedBox(width: AppDimens.sm.w),
-                Text(order.distance,
+                Text(_mockDistance,
                     style: AppTextStyles.bodySmall
                         .copyWith(color: AppColors.grey500)),
                 SizedBox(width: AppDimens.sm.w),
                 _Dot(),
                 SizedBox(width: AppDimens.sm.w),
-                Text(order.estimatedTime,
+                Text(_mockTime,
                     style: AppTextStyles.bodySmall
                         .copyWith(color: AppColors.grey500)),
               ],
@@ -440,7 +555,7 @@ class _OrderCard extends StatelessWidget {
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
-                        Text(order.pickup,
+                        Text(order.structureName,
                             style: AppTextStyles.labelSmall
                                 .copyWith(color: AppColors.dark)),
                         SizedBox(height: 12.h),
@@ -448,7 +563,7 @@ class _OrderCard extends StatelessWidget {
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
-                        Text(order.delivery,
+                        Text(order.adresseLivraison,
                             style: AppTextStyles.labelSmall
                                 .copyWith(color: AppColors.dark)),
                       ],
@@ -536,26 +651,3 @@ class _Dot extends StatelessWidget {
       );
 }
 
-class _OrderData {
-  final String amount;
-  final String distance;
-  final String estimatedTime;
-  final String pickup;
-  final String pickupDetail;
-  final String delivery;
-  final String deliveryDetail;
-  final int timerSeconds;
-  final String category;
-
-  const _OrderData({
-    required this.amount,
-    required this.distance,
-    required this.estimatedTime,
-    required this.pickup,
-    required this.pickupDetail,
-    required this.delivery,
-    required this.deliveryDetail,
-    required this.timerSeconds,
-    required this.category,
-  });
-}
