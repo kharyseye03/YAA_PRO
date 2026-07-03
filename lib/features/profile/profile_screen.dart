@@ -1,22 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
+import '../../config/api/api_config.dart';
+import '../auth/providers/auth_notifier.dart';
+import '../auth/providers/driver_provider.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _notificationsEnabled = true;
+
+  Future<void> _logout() async {
+    await ref.read(authProvider.notifier).logout();
+    if (mounted) context.goNamed(RouteNames.login);
+  }
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
+    final driver = ref.watch(driverDetailProvider).valueOrNull;
+    final imageUrl = driver?.imageFileName != null
+        ? ApiConfig.getImageUrl(driver!.imageFileName!)
+        : null;
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -40,18 +53,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(
                               color: AppColors.grey200, width: 2),
+                          image: imageUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(imageUrl),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
                         ),
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: AppColors.grey400,
-                          size: 44.r,
-                        ),
+                        child: imageUrl == null
+                            ? Icon(
+                                Icons.person_rounded,
+                                color: AppColors.grey400,
+                                size: 44.r,
+                              )
+                            : null,
                       ),
                       Positioned(
                         bottom: 0,
                         right: 0,
                         child: GestureDetector(
-                          onTap: () {},
+                          onTap: () => context
+                              .pushNamed(RouteNames.editPersonalInfo),
+                          behavior: HitTestBehavior.opaque,
                           child: Container(
                             width: 28.r,
                             height: 28.r,
@@ -73,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // Nom
                   Text(
-                    'Mamekh Seye',
+                    driver?.fullName ?? '...',
                     style: AppTextStyles.h3.copyWith(
                       fontWeight: FontWeight.w800,
                       color: AppColors.dark,
@@ -84,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // Email
                   Text(
-                    'mamekharyseye03@gmail.com',
+                    driver?.email ?? '',
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.grey400,
                     ),
@@ -123,7 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _Row(
               icon: Icons.person_outline_rounded,
               label: 'Informations personnelles',
-              onTap: () {},
+              onTap: () => context.pushNamed(RouteNames.personalInfo),
             ),
             const _RowDivider(),
             _Row(
@@ -181,7 +204,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label: 'Se déconnecter',
               labelColor: AppColors.error,
               iconColor: AppColors.error,
-              onTap: () => context.goNamed(RouteNames.login),
+              onTap: _logout,
             ),
             const _RowDivider(),
             _Row(

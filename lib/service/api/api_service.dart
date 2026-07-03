@@ -1,11 +1,15 @@
-import 'package:dio/dio.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../../config/api/api_config.dart';
-import '../../core/network/api_client.dart';
 import '../../model/auth/auth_response.dart';
+import '../../model/driver/driver_detail.dart';
+import '../../model/order/commande_livraison.dart';
+import '../storage/token_storage.dart';
 
 class ApiService {
-  final _dio = ApiClient.instance.dio;
-
   // ── Auth ──────────────────────────────────────────────────
 
   Future<AuthResponse> login({
@@ -13,154 +17,164 @@ class ApiService {
     required String password,
   }) async {
     try {
-      final response = await Dio().post(
-        ApiConfig.getIamUrl(ApiConfig.loginEndpoint),
-        data: {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getIamUrl(ApiConfig.loginEndpoint)),
+        headers: ApiConfig.formHeaders,
+        body: {
           'grant_type': 'password',
-          'client_id': 'yaa-pro-app',
+          'client_id': 'yaa',
           'username': username,
           'password': password,
         },
-        options: Options(
-          headers: ApiConfig.formHeaders,
-          validateStatus: (status) => status != null && status < 500,
-        ),
       );
 
       if (response.statusCode == 200) {
-        return AuthResponse.fromJson(response.data as Map<String, dynamic>);
+        return AuthResponse.fromJson(
+            jsonDecode(response.body) as Map<String, dynamic>);
       }
-      throw Exception('Identifiants incorrects.');
-    } on DioException catch (e) {
-      throw Exception(e.error ?? 'Erreur de connexion.');
-    }
-  }
-
-  Future<void> registerDriver({
-    required String firstName,
-    required String lastName,
-    required String email,
-    required String telephone,
-    required String address,
-    required String docType,
-    required String docNumber,
-    required String vehicleType,
-    required String brand,
-    required String licenseNumber,
-    required String plate,
-    required String insurance,
-    String? carteGrisePath,
-    required String password,
-  }) async {
-    try {
-      final response = await _dio.post(
-        ApiConfig.getUrl(ApiConfig.registerEndpoint),
-        data: {
-          'prenom': firstName,
-          'nom': lastName,
-          'email': email,
-          'telephone': telephone,
-          'adresse': address,
-          'typeDocument': docType,
-          'numeroDocument': docNumber,
-          'typeVehicule': vehicleType,
-          'marque': brand,
-          'numeroPermis': licenseNumber,
-          'immatriculation': plate,
-          'assurance': insurance,
-          'password': password,
-        },
-        options: Options(headers: ApiConfig.headers),
-      );
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Erreur lors de l\'inscription.');
+      if (response.statusCode == 401 || response.statusCode == 400) {
+        throw Exception('Identifiants incorrects.');
       }
-    } on DioException catch (e) {
-      throw Exception(e.error ?? 'Erreur réseau.');
-    }
-  }
-
-  Future<void> verifyOtp({
-    required String email,
-    required String otp,
-  }) async {
-    try {
-      final response = await _dio.post(
-        ApiConfig.getUrl(ApiConfig.verifyOtpEndpoint),
-        data: {'email': email, 'otp': otp},
-        options: Options(headers: ApiConfig.headers),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Code invalide.');
-      }
-    } on DioException catch (e) {
-      throw Exception(e.error ?? 'Erreur réseau.');
-    }
-  }
-
-  Future<void> createPassword({
-    required String email,
-    required String newPassword,
-  }) async {
-    try {
-      final response = await _dio.post(
-        ApiConfig.getUrl(ApiConfig.resetPasswordEndpoint),
-        data: {'email': email, 'newPassword': newPassword},
-        options: Options(headers: ApiConfig.headers),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Erreur lors de la création du mot de passe.');
-      }
-    } on DioException catch (e) {
-      throw Exception(e.error ?? 'Erreur réseau.');
-    }
-  }
-
-  Future<void> forgotPassword({required String email}) async {
-    try {
-      await _dio.post(
-        ApiConfig.getUrl(ApiConfig.forgotPasswordEndpoint),
-        data: {'email': email},
-        options: Options(headers: ApiConfig.headers),
-      );
-    } on DioException catch (e) {
-      throw Exception(e.error ?? 'Erreur réseau.');
-    }
-  }
-
-  Future<void> resendCode({required String email}) async {
-    try {
-      await _dio.post(
-        ApiConfig.getUrl(ApiConfig.resendCodeEndpoint),
-        data: {'email': email},
-        options: Options(headers: ApiConfig.headers),
-      );
-    } on DioException catch (e) {
-      throw Exception(e.error ?? 'Erreur réseau.');
+      throw Exception('Erreur serveur (${response.statusCode}).');
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
     }
   }
 
   Future<AuthResponse> refreshToken({required String refreshToken}) async {
     try {
-      final response = await Dio().post(
-        ApiConfig.getIamUrl(ApiConfig.loginEndpoint),
-        data: {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getIamUrl(ApiConfig.loginEndpoint)),
+        headers: ApiConfig.formHeaders,
+        body: {
           'grant_type': 'refresh_token',
-          'client_id': 'yaa-pro-app',
+          'client_id': 'yaa',
           'refresh_token': refreshToken,
         },
-        options: Options(headers: ApiConfig.formHeaders),
       );
 
       if (response.statusCode == 200) {
-        return AuthResponse.fromJson(response.data as Map<String, dynamic>);
+        return AuthResponse.fromJson(
+            jsonDecode(response.body) as Map<String, dynamic>);
       }
       throw Exception('Session expirée.');
-    } on DioException catch (e) {
-      throw Exception(e.error ?? 'Erreur réseau.');
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  // ── Livreur ───────────────────────────────────────────────
+
+  Future<DriverDetail> getDriverDetail({required String telephone}) async {
+    try {
+      final uri = Uri.parse(
+              ApiConfig.getUrl(ApiConfig.driverDetailEndpoint))
+          .replace(queryParameters: {'telephone': telephone});
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        return DriverDetail.fromJson(
+            jsonDecode(response.body) as Map<String, dynamic>);
+      }
+      throw Exception('Impossible de charger le profil.');
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  // ── Commandes ─────────────────────────────────────────────
+
+  /// Commandes disponibles pour livraison (nécessite le Bearer token).
+  Future<List<CommandeLivraison>> getAvailableOrders() async {
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      if (token == null) throw Exception('Non connecté.');
+
+      final response = await http.get(
+        Uri.parse(ApiConfig.getUrl(ApiConfig.availableOrdersEndpoint)),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final list = jsonDecode(response.body) as List<dynamic>;
+        return list
+            .map((e) =>
+                CommandeLivraison.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      if (response.statusCode == 401) {
+        throw Exception('Session expirée. Reconnectez-vous.');
+      }
+      throw Exception(
+          'Impossible de charger les commandes (${response.statusCode}).');
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  Future<void> updateProfile({
+    required String email,
+    required String firstName,
+    required String lastName,
+    required String telephone,
+    String? imagePath,
+  }) async {
+    try {
+      final uri =
+          Uri.parse(ApiConfig.getUrl(ApiConfig.updateProfileEndpoint));
+      final request = http.MultipartRequest('PUT', uri)
+        ..fields['firstName'] = firstName
+        ..fields['lastName'] = lastName
+        ..fields['email'] = email
+        ..fields['telephone'] = telephone;
+
+      if (imagePath != null) {
+        final ext = imagePath.split('.').last.toLowerCase();
+        final mimeType = switch (ext) {
+          'jpg' || 'jpeg' => 'image/jpeg',
+          'png' => 'image/png',
+          'gif' => 'image/gif',
+          'webp' => 'image/webp',
+          _ => 'image/jpeg',
+        };
+        final parts = mimeType.split('/');
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'image',
+            imagePath,
+            contentType: MediaType(parts[0], parts[1]),
+          ),
+        );
+      }
+
+      final streamed = await request.send().timeout(
+            const Duration(seconds: ApiConfig.connectionTimeout),
+            onTimeout: () =>
+                throw TimeoutException('Le serveur ne répond pas.'),
+          );
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return;
+      }
+
+      Map<String, dynamic> data = {};
+      if (response.body.isNotEmpty) {
+        try {
+          data = json.decode(response.body) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+      final errorMessage =
+          data['message'] as String? ?? 'Erreur ${response.statusCode}';
+      throw Exception(errorMessage);
+    } on SocketException {
+      throw Exception('Pas de connexion internet.');
+    } on TimeoutException catch (e) {
+      throw Exception(e.message);
     }
   }
 }

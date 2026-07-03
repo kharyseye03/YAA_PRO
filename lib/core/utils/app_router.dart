@@ -9,6 +9,8 @@ import '../../features/auth/verification_screen.dart';
 import '../../features/shell/main_shell.dart';
 import '../../features/delivery/delivery_screen.dart';
 import '../../features/orders/order_detail_screen.dart';
+import '../../features/profile/personal_info_screen.dart';
+import '../../features/profile/edit_personal_info_screen.dart';
 import '../../features/starter/onboarding/onboarding_screen.dart';
 import '../../features/starter/splash/splash_screen.dart';
 
@@ -27,6 +29,8 @@ abstract final class RoutePaths {
   static const String orderDetail = '/order-detail';
   static const String history = '/history';
   static const String profile = '/profile';
+  static const String personalInfo = '/personal-info';
+  static const String editPersonalInfo = '/edit-personal-info';
 }
 
 abstract final class RouteNames {
@@ -44,6 +48,8 @@ abstract final class RouteNames {
   static const String orderDetail = 'orderDetail';
   static const String history = 'history';
   static const String profile = 'profile';
+  static const String personalInfo = 'personalInfo';
+  static const String editPersonalInfo = 'editPersonalInfo';
 }
 
 final appRouter = GoRouter(
@@ -116,6 +122,18 @@ final appRouter = GoRouter(
       builder: (context, state) => OrderDetailScreen(
         order: state.extra as OrderDetailArgs?,
       ),
+    ),
+
+    // ── Profil ─────────────────────────────────────────────
+    GoRoute(
+      path: RoutePaths.personalInfo,
+      name: RouteNames.personalInfo,
+      builder: (context, state) => const PersonalInfoScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.editPersonalInfo,
+      name: RouteNames.editPersonalInfo,
+      builder: (context, state) => const EditPersonalInfoScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(
