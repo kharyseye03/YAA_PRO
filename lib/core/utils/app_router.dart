@@ -81,9 +81,16 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.verification,
       name: RouteNames.verification,
-      builder: (context, state) => VerificationScreen(
-        email: state.extra as String? ?? '',
-      ),
+      builder: (context, state) {
+        final extra = state.extra;
+        if (extra is VerificationArgs) {
+          return VerificationScreen(
+            email: extra.email,
+            telephone: extra.telephone,
+          );
+        }
+        return VerificationScreen(email: extra as String? ?? '');
+      },
     ),
     GoRoute(
       path: RoutePaths.forgotPassword,
@@ -93,16 +100,28 @@ final appRouter = GoRouter(
     GoRoute(
       path: RoutePaths.forgotVerification,
       name: RouteNames.forgotVerification,
-      builder: (context, state) => ForgotVerificationScreen(
-        email: state.extra as String? ?? '',
-      ),
+      builder: (context, state) {
+        final args = state.extra as ForgotVerificationArgs?;
+        return ForgotVerificationScreen(
+          email: args?.email ?? '',
+          telephone: args?.telephone ?? '',
+        );
+      },
     ),
     GoRoute(
       path: RoutePaths.resetPassword,
       name: RouteNames.resetPassword,
-      builder: (context, state) => ResetPasswordScreen(
-        email: state.extra as String? ?? '',
-      ),
+      builder: (context, state) {
+        // Accepte ResetPasswordArgs (inscription) ou String (mdp oublié)
+        final extra = state.extra;
+        if (extra is ResetPasswordArgs) {
+          return ResetPasswordScreen(
+            email: extra.email,
+            fromRegistration: extra.fromRegistration,
+          );
+        }
+        return ResetPasswordScreen(email: extra as String? ?? '');
+      },
     ),
 
     // ── Main shell (bottom nav) ────────────────────────────

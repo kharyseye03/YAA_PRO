@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
+import 'forgot_verification_screen.dart';
 import 'providers/auth_notifier.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -26,12 +27,18 @@ class _ForgotPasswordScreenState
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final email = _emailCtrl.text.trim();
+
+    // Le service téléphone n'est pas encore dispo côté back :
+    // on n'utilise que l'email pour le moment.
     final success = await ref
         .read(authProvider.notifier)
-        .forgotPassword(email: _emailCtrl.text.trim());
+        .forgotPassword(email: email, telephone: '');
     if (success && mounted) {
-      context.goNamed(RouteNames.forgotVerification,
-          extra: _emailCtrl.text.trim());
+      context.goNamed(
+        RouteNames.forgotVerification,
+        extra: ForgotVerificationArgs(email: email, telephone: ''),
+      );
     }
   }
 

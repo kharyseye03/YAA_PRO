@@ -65,6 +65,154 @@ class ApiService {
     }
   }
 
+  // ── Inscription ───────────────────────────────────────────
+
+  /// Extrait le message d'erreur du body de réponse si présent.
+  String _errorMessage(http.Response response, String fallback) {
+    try {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['message'] as String? ?? fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  Future<void> registerDriver({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String telephone,
+    required String address,
+    required String docType,
+    required String docNumber,
+    required String vehicule,
+    required String brand,
+    required String licenseNumber,
+    required String plate,
+    required String insurance,
+    required String couleur,
+    required String carteGrise,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getUrl(ApiConfig.registerEndpoint)),
+        headers: ApiConfig.jsonHeaders,
+        body: jsonEncode({
+          'firstName': firstName,
+          'lastName': lastName,
+          'email': email,
+          'telephone': telephone,
+          'adresseHabitation': address,
+          'vehicule': vehicule,
+          'type': docType,
+          'pieceNumber': docNumber,
+          'marque': brand,
+          'immatriculation': plate,
+          'assurance': insurance,
+          'permis': licenseNumber,
+          'couleur': couleur,
+          'carteGrise': carteGrise,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return;
+      }
+      throw Exception(_errorMessage(
+          response, 'Erreur lors de l\'inscription (${response.statusCode}).'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  Future<void> verifyOtp({
+    required String email,
+    required String otp,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getUrl(ApiConfig.verifyOtpEndpoint)),
+        headers: ApiConfig.jsonHeaders,
+        body: jsonEncode({'email': email, 'otp': otp}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return;
+      }
+      throw Exception(_errorMessage(response, 'Code invalide.'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  Future<void> createPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getUrl(ApiConfig.resetPasswordEndpoint)),
+        headers: ApiConfig.jsonHeaders,
+        body: jsonEncode({'email': email, 'newPassword': newPassword}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return;
+      }
+      throw Exception(_errorMessage(
+          response, 'Erreur lors de la création du mot de passe.'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  Future<void> forgotPassword({
+    required String email,
+    required String telephone,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getUrl(ApiConfig.forgotPasswordEndpoint)),
+        headers: ApiConfig.jsonHeaders,
+        body: jsonEncode({'email': email, 'telephone': telephone}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return;
+      }
+      throw Exception(_errorMessage(
+          response, 'Erreur lors de l\'envoi du code (${response.statusCode}).'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  Future<void> resendCode({
+    required String email,
+    required String telephone,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.getUrl(ApiConfig.resendCodeEndpoint)),
+        headers: ApiConfig.jsonHeaders,
+        body: jsonEncode({'email': email, 'telephone': telephone}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return;
+      }
+      throw Exception(_errorMessage(
+          response, 'Impossible de renvoyer le code (${response.statusCode}).'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
   // ── Livreur ───────────────────────────────────────────────
 
   Future<DriverDetail> getDriverDetail({required String telephone}) async {

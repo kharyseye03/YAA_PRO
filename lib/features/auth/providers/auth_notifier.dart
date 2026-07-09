@@ -54,8 +54,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
-  // ── Mocks : APIs pas encore fournies ────────────────────────
-
   Future<bool> registerDriver({
     required String firstName,
     required String lastName,
@@ -64,18 +62,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String address,
     required String docType,
     required String docNumber,
-    required String vehicleType,
+    required String vehicule,
     required String brand,
     required String licenseNumber,
     required String plate,
     required String insurance,
-    String? carteGrisePath,
-    required String password,
+    required String couleur,
+    required String carteGrise,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    state = state.copyWith(isLoading: false);
-    return true;
+    try {
+      await _api.registerDriver(
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        telephone: telephone,
+        address: address,
+        docType: docType,
+        docNumber: docNumber,
+        vehicule: vehicule,
+        brand: brand,
+        licenseNumber: licenseNumber,
+        plate: plate,
+        insurance: insurance,
+        couleur: couleur,
+        carteGrise: carteGrise,
+      );
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _cleanError(e));
+      return false;
+    }
   }
 
   Future<bool> verifyOtp({
@@ -83,9 +101,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String otp,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    state = state.copyWith(isLoading: false);
-    return true;
+    try {
+      await _api.verifyOtp(email: email, otp: otp);
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _cleanError(e));
+      return false;
+    }
   }
 
   Future<bool> createPassword({
@@ -93,23 +116,44 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String newPassword,
   }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    state = state.copyWith(isLoading: false);
-    return true;
+    try {
+      await _api.createPassword(email: email, newPassword: newPassword);
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _cleanError(e));
+      return false;
+    }
   }
 
-  Future<bool> forgotPassword({required String email}) async {
+  Future<bool> forgotPassword({
+    required String email,
+    required String telephone,
+  }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    state = state.copyWith(isLoading: false);
-    return true;
+    try {
+      await _api.forgotPassword(email: email, telephone: telephone);
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _cleanError(e));
+      return false;
+    }
   }
 
-  Future<bool> resendCode({required String email}) async {
+  Future<bool> resendCode({
+    required String email,
+    required String telephone,
+  }) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    state = state.copyWith(isLoading: false);
-    return true;
+    try {
+      await _api.resendCode(email: email, telephone: telephone);
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _cleanError(e));
+      return false;
+    }
   }
 }
 
