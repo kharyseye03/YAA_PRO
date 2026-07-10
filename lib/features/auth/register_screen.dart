@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import 'providers/auth_notifier.dart';
+import 'verification_screen.dart';
 
 // ── Formatter téléphone : XX XXX XX XX (max 9 chiffres) ────────
 class _PhoneFormatter extends TextInputFormatter {
@@ -59,14 +59,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _licenseCtrl = TextEditingController();
   final _plateCtrl = TextEditingController();
   final _insuranceCtrl = TextEditingController();
-  String? _carteGrisePath;
-
-  // Step 3
-  final _step3Key = GlobalKey<FormState>();
-  final _passwordCtrl = TextEditingController();
-  final _confirmCtrl = TextEditingController();
-  bool _obscure1 = true;
-  bool _obscure2 = true;
+  final _couleurCtrl = TextEditingController();
+  final _carteGriseCtrl = TextEditingController();
 
   TextEditingController get _activeDocCtrl =>
       _docType == 'CIN' ? _cinCtrl : _passportCtrl;
@@ -85,21 +79,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _licenseCtrl.dispose();
     _plateCtrl.dispose();
     _insuranceCtrl.dispose();
-    _passwordCtrl.dispose();
-    _confirmCtrl.dispose();
+    _couleurCtrl.dispose();
+    _carteGriseCtrl.dispose();
     super.dispose();
   }
 
   void _nextStep() {
-    final valid = _currentStep == 0
-        ? _step1Key.currentState!.validate()
-        : _step2Key.currentState!.validate();
-    if (!valid) return;
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOut,
-    );
-    setState(() => _currentStep++);
+    if (_currentStep == 0) {
+      if (!_step1Key.currentState!.validate()) return;
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _currentStep++);
+    } else {
+      // Étape véhicule → soumission du formulaire
+      _submit();
+    }
   }
 
   void _prevStep() {
@@ -110,33 +106,45 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     setState(() => _currentStep--);
   }
 
+  /// Valeur de l'enum TypeVehicule attendue par le backend.
+  String get _vehiculeEnum => switch (_vehicleType) {
+        'MOTO' => 'MOTO',
+        'VOITURE' => 'VEHICLE',
+        _ => switch (_bikeType) {
+            'CLASSIQUE' => 'VELO_CLASSIC',
+            'ELECTRIQUE' => 'VELO_ELECTRIC',
+            'CARGO' => 'VELO_CARGO',
+            _ => 'VTT',
+          },
+      };
+
   Future<void> _submit() async {
-    if (!_step3Key.currentState!.validate()) return;
+    if (!_step2Key.currentState!.validate()) return;
     final success = await ref.read(authProvider.notifier).registerDriver(
           firstName: _firstNameCtrl.text.trim(),
           lastName: _lastNameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           telephone: _phoneCtrl.text.replaceAll(' ', ''),
           address: _addressCtrl.text.trim(),
-          docType: _docType,
+          docType: _docType == 'CIN' ? 'CNI' : 'PASSEPORT',
           docNumber: _activeDocCtrl.text.trim(),
-          vehicleType: _vehicleType == 'VELO' ? 'VELO_$_bikeType' : _vehicleType,
+          vehicule: _vehiculeEnum,
           brand: _brandCtrl.text.trim(),
           licenseNumber: _licenseCtrl.text.trim(),
           plate: _plateCtrl.text.trim(),
           insurance: _insuranceCtrl.text.trim(),
-          carteGrisePath: _carteGrisePath,
-          password: _passwordCtrl.text,
+          couleur: _couleurCtrl.text.trim(),
+          carteGrise: _carteGriseCtrl.text.trim(),
         );
     if (success && mounted) {
-      context.goNamed(RouteNames.verification, extra: _emailCtrl.text.trim());
+      context.goNamed(
+        RouteNames.verification,
+        extra: VerificationArgs(
+          email: _emailCtrl.text.trim(),
+          telephone: _phoneCtrl.text.replaceAll(' ', ''),
+        ),
+      );
     }
-  }
-
-  Future<void> _pickCarteGrise() async {
-    final file =
-        await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (file != null) setState(() => _carteGrisePath = file.path);
   }
 
   @override
@@ -179,23 +187,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             licenseCtrl: _licenseCtrl,
             plateCtrl: _plateCtrl,
             insuranceCtrl: _insuranceCtrl,
-            carteGrisePath: _carteGrisePath,
-            onVehicleTypeChanged: (v) => setState(() => _vehicleType = v),
-            onBikeTypeChanged: (v) => setState(() => _bikeType = v!),
-            onPickCarteGrise: _pickCarteGrise,
-            onNext: _nextStep,
-          ),
-          _Step3(
-            formKey: _step3Key,
-            passwordCtrl: _passwordCtrl,
-            confirmCtrl: _confirmCtrl,
-            obscure1: _obscure1,
-            obscure2: _obscure2,
+            couleurCtrl: _couleurCtrl,
+            carteGriseCtrl: _carteGriseCtrl,
             isLoading: state.isLoading,
             error: state.error,
-            onToggleObscure1: () => setState(() => _obscure1 = !_obscure1),
-            onToggleObscure2: () => setState(() => _obscure2 = !_obscure2),
-            onSubmit: _submit,
+            onVehicleTypeChanged: (v) => setState(() => _vehicleType = v),
+            onBikeTypeChanged: (v) => setState(() => _bikeType = v!),
+            onNext: _nextStep,
           ),
         ],
       ),
@@ -490,10 +488,12 @@ class _Step2 extends StatelessWidget {
   final TextEditingController licenseCtrl;
   final TextEditingController plateCtrl;
   final TextEditingController insuranceCtrl;
-  final String? carteGrisePath;
+  final TextEditingController couleurCtrl;
+  final TextEditingController carteGriseCtrl;
+  final bool isLoading;
+  final String? error;
   final ValueChanged<String> onVehicleTypeChanged;
   final ValueChanged<String?> onBikeTypeChanged;
-  final VoidCallback onPickCarteGrise;
   final VoidCallback onNext;
 
   const _Step2({
@@ -504,10 +504,12 @@ class _Step2 extends StatelessWidget {
     required this.licenseCtrl,
     required this.plateCtrl,
     required this.insuranceCtrl,
-    required this.carteGrisePath,
+    required this.couleurCtrl,
+    required this.carteGriseCtrl,
+    required this.isLoading,
+    required this.error,
     required this.onVehicleTypeChanged,
     required this.onBikeTypeChanged,
-    required this.onPickCarteGrise,
     required this.onNext,
   });
 
@@ -631,196 +633,24 @@ class _Step2 extends StatelessWidget {
               ),
               const SizedBox(height: AppDimens.lg),
 
-              // Upload carte grise
-              const _Label('Carte grise'),
-              GestureDetector(
-                onTap: onPickCarteGrise,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppDimens.lg),
-                  decoration: BoxDecoration(
-                    color: carteGrisePath != null
-                        ? AppColors.primarySurface
-                        : AppColors.white,
-                    borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                    border: Border.all(
-                      color: carteGrisePath != null
-                          ? AppColors.primary
-                          : AppColors.grey300,
-                      width: carteGrisePath != null ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: carteGrisePath != null
-                              ? AppColors.primary
-                              : AppColors.grey100,
-                          borderRadius:
-                              BorderRadius.circular(AppDimens.radiusMd),
-                        ),
-                        child: Icon(
-                          carteGrisePath != null
-                              ? Icons.check_rounded
-                              : Icons.upload_rounded,
-                          color: carteGrisePath != null
-                              ? AppColors.white
-                              : AppColors.grey500,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: AppDimens.md),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            carteGrisePath != null
-                                ? 'Fichier chargé'
-                                : 'Charger la carte grise',
-                            style: AppTextStyles.labelMedium.copyWith(
-                              color: carteGrisePath != null
-                                  ? AppColors.primary
-                                  : AppColors.dark,
-                            ),
-                          ),
-                          Text(
-                            carteGrisePath != null
-                                ? 'Appuyez pour changer'
-                                : 'JPG, PNG ou PDF',
-                            style: AppTextStyles.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              const _Label('Couleur'),
+              TextFormField(
+                controller: couleurCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: _inputDeco(hint: 'Ex: Rouge, Noir...'),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Requis' : null,
+              ),
+              const SizedBox(height: AppDimens.lg),
+
+              const _Label('Numéro carte grise'),
+              TextFormField(
+                controller: carteGriseCtrl,
+                decoration: _inputDeco(hint: 'Numéro de la carte grise'),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Requis' : null,
               ),
             ],
-
-            const SizedBox(height: AppDimens.xxxl),
-
-            SizedBox(
-              width: double.infinity,
-              height: AppDimens.buttonHeight,
-              child: ElevatedButton(
-                onPressed: onNext,
-                child: const Text('Continuer'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── STEP 3 ─────────────────────────────────────────────────────
-class _Step3 extends StatelessWidget {
-  final GlobalKey<FormState> formKey;
-  final TextEditingController passwordCtrl;
-  final TextEditingController confirmCtrl;
-  final bool obscure1;
-  final bool obscure2;
-  final bool isLoading;
-  final String? error;
-  final VoidCallback onToggleObscure1;
-  final VoidCallback onToggleObscure2;
-  final VoidCallback onSubmit;
-
-  const _Step3({
-    required this.formKey,
-    required this.passwordCtrl,
-    required this.confirmCtrl,
-    required this.obscure1,
-    required this.obscure2,
-    required this.isLoading,
-    required this.error,
-    required this.onToggleObscure1,
-    required this.onToggleObscure2,
-    required this.onSubmit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-          AppDimens.screenPadding, 0, AppDimens.screenPadding, AppDimens.xl),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            RichText(
-              text: TextSpan(
-                text: 'Sécurisez\n',
-                style: AppTextStyles.h2,
-                children: [
-                  TextSpan(
-                    text: 'votre compte',
-                    style: AppTextStyles.h2
-                        .copyWith(color: AppColors.secondary),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppDimens.xs),
-            Text('Choisissez un mot de passe fort pour protéger votre espace.',
-                style:
-                    AppTextStyles.bodySmall.copyWith(color: AppColors.grey600)),
-            const SizedBox(height: AppDimens.xxl),
-
-            const _Label('Mot de passe'),
-            TextFormField(
-              controller: passwordCtrl,
-              obscureText: obscure1,
-              onChanged: (_) {},
-              decoration: _inputDeco(hint: 'Minimum 8 caractères').copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    obscure1
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppColors.grey500,
-                    size: 20,
-                  ),
-                  onPressed: onToggleObscure1,
-                ),
-              ),
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Requis';
-                if (v.length < 8) return 'Minimum 8 caractères';
-                return null;
-              },
-            ),
-            const SizedBox(height: AppDimens.lg),
-
-            const _Label('Confirmer le mot de passe'),
-            TextFormField(
-              controller: confirmCtrl,
-              obscureText: obscure2,
-              decoration: _inputDeco(hint: 'Répétez le mot de passe').copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    obscure2
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppColors.grey500,
-                    size: 20,
-                  ),
-                  onPressed: onToggleObscure2,
-                ),
-              ),
-              validator: (v) {
-                if (v != passwordCtrl.text) {
-                  return 'Les mots de passe ne correspondent pas';
-                }
-                return null;
-              },
-            ),
 
             if (error != null) ...[
               const SizedBox(height: AppDimens.lg),
@@ -851,7 +681,7 @@ class _Step3 extends StatelessWidget {
               width: double.infinity,
               height: AppDimens.buttonHeight,
               child: ElevatedButton(
-                onPressed: isLoading ? null : onSubmit,
+                onPressed: isLoading ? null : onNext,
                 child: isLoading
                     ? const SizedBox(
                         height: 22,
@@ -859,7 +689,7 @@ class _Step3 extends StatelessWidget {
                         child: CircularProgressIndicator(
                             strokeWidth: 2.5, color: AppColors.white),
                       )
-                    : const Text('Créer mon compte'),
+                    : const Text('Continuer'),
               ),
             ),
           ],

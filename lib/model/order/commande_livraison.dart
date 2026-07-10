@@ -10,6 +10,7 @@ class CommandeLivraison {
   final double? latitude;
   final double? longitude;
   final String modeLivraison;
+  final DateTime? createdDate;
   final String? statutCommande;
 
   const CommandeLivraison({
@@ -24,6 +25,7 @@ class CommandeLivraison {
     this.latitude,
     this.longitude,
     required this.modeLivraison,
+    this.createdDate,
     this.statutCommande,
   });
 
@@ -46,6 +48,9 @@ class CommandeLivraison {
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       modeLivraison: json['modeLivraison'] as String? ?? '',
+      createdDate: json['createdDate'] != null
+          ? DateTime.tryParse(json['createdDate'] as String)
+          : null,
       statutCommande: json['statutCommande'] as String?,
     );
   }

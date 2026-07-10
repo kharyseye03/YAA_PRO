@@ -5,10 +5,24 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import 'providers/auth_notifier.dart';
+import 'reset_password_screen.dart';
+
+/// Arguments de navigation : email + téléphone (requis pour
+/// le renvoi du code OTP).
+class VerificationArgs {
+  final String email;
+  final String telephone;
+  const VerificationArgs({required this.email, required this.telephone});
+}
 
 class VerificationScreen extends ConsumerStatefulWidget {
   final String email;
-  const VerificationScreen({super.key, required this.email});
+  final String telephone;
+  const VerificationScreen({
+    super.key,
+    required this.email,
+    this.telephone = '',
+  });
 
   @override
   ConsumerState<VerificationScreen> createState() => _VerificationScreenState();
@@ -62,7 +76,16 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
           email: widget.email,
           otp: _otp,
         );
-    if (success && mounted) context.goNamed(RouteNames.home);
+    // OTP validé → définition du mot de passe (parcours inscription)
+    if (success && mounted) {
+      context.goNamed(
+        RouteNames.resetPassword,
+        extra: ResetPasswordArgs(
+          email: widget.email,
+          fromRegistration: true,
+        ),
+      );
+    }
   }
 
   void _onChanged(String value, int index) {
@@ -227,11 +250,14 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                         ],
                       )
                     : GestureDetector(
-                        onTap: () {
-                          ref
+                        onTap: () async {
+                          final success = await ref
                               .read(authProvider.notifier)
-                              .resendCode(email: widget.email);
-                          _startTimer();
+                              .resendCode(
+                                email: widget.email,
+                                telephone: widget.telephone,
+                              );
+                          if (success) _startTimer();
                         },
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,

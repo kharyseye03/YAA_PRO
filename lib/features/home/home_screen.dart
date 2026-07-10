@@ -19,11 +19,11 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Dernière commande arrivée = id le plus élevé
+    // Dernière commande arrivée = première de la liste
+    // (triée par createdDate décroissante dans le provider)
     final orders = ref.watch(availableOrdersProvider).valueOrNull;
-    final latestOrder = orders == null || orders.isEmpty
-        ? null
-        : orders.reduce((a, b) => a.id > b.id ? a : b);
+    final latestOrder =
+        orders == null || orders.isEmpty ? null : orders.first;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(

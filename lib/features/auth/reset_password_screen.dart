@@ -5,9 +5,25 @@ import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import 'providers/auth_notifier.dart';
 
+/// Arguments de navigation : email + provenance (inscription ou
+/// mot de passe oublié) pour adapter la fin du parcours.
+class ResetPasswordArgs {
+  final String email;
+  final bool fromRegistration;
+  const ResetPasswordArgs({
+    required this.email,
+    this.fromRegistration = false,
+  });
+}
+
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   final String email;
-  const ResetPasswordScreen({super.key, required this.email});
+  final bool fromRegistration;
+  const ResetPasswordScreen({
+    super.key,
+    required this.email,
+    this.fromRegistration = false,
+  });
 
   @override
   ConsumerState<ResetPasswordScreen> createState() =>
@@ -35,7 +51,81 @@ class _ResetPasswordScreenState
           email: widget.email,
           newPassword: _passwordCtrl.text,
         );
-    if (success && mounted) context.goNamed(RouteNames.login);
+    if (!success || !mounted) return;
+    _showSuccessDialog();
+  }
+
+  void _showSuccessDialog() {
+    final title = widget.fromRegistration
+        ? 'Compte créé avec succès !'
+        : 'Mot de passe mis à jour !';
+    final message = widget.fromRegistration
+        ? 'Connectez-vous pour accéder à votre espace livreur.'
+        : 'Connectez-vous avec votre nouveau mot de passe.';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimens.radiusXl),
+        ),
+        backgroundColor: AppColors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimens.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icône succès
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.successLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: AppColors.success,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: AppDimens.xl),
+
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.h3.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.dark,
+                ),
+              ),
+              const SizedBox(height: AppDimens.sm),
+
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMedium
+                    .copyWith(color: AppColors.grey500),
+              ),
+              const SizedBox(height: AppDimens.xl),
+
+              SizedBox(
+                width: double.infinity,
+                height: AppDimens.buttonHeight,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    context.goNamed(RouteNames.login);
+                  },
+                  child: const Text('Se connecter'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
