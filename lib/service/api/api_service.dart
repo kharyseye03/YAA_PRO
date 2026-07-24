@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../../config/api/api_config.dart';
 import '../../model/auth/auth_response.dart';
 import '../../model/driver/driver_detail.dart';
-import '../../model/order/commande_livraison.dart';
+import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
 
 class ApiService {
@@ -235,29 +236,106 @@ class ApiService {
 
   // ── Commandes ─────────────────────────────────────────────
 
-  /// Commandes disponibles pour livraison (nécessite le Bearer token).
-  Future<List<CommandeLivraison>> getAvailableOrders() async {
+  /// Missions disponibles pour le coursier (nécessite le Bearer token).
+  Future<List<Mission>> getAvailableOrders() async {
+    final url = ApiConfig.getUrl(ApiConfig.availableOrdersEndpoint);
     try {
       final token = await TokenStorage.instance.getAccessToken();
+      debugPrint('🌐 GET $url');
+      debugPrint('🔑 Token : ${token == null ? "AUCUN" : "présent (${token.length} car.)"}');
       if (token == null) throw Exception('Non connecté.');
 
       final response = await http.get(
-        Uri.parse(ApiConfig.getUrl(ApiConfig.availableOrdersEndpoint)),
+        Uri.parse(url),
         headers: {'Authorization': 'Bearer $token'},
       );
 
+      debugPrint('📡 Status → ${response.statusCode}');
+      debugPrint('📬 Body → ${response.body}');
+
       if (response.statusCode == 200) {
-        final list = jsonDecode(response.body) as List<dynamic>;
-        return list
-            .map((e) =>
-                CommandeLivraison.fromJson(e as Map<String, dynamic>))
-            .toList();
+        // Réponse enveloppée : { data: [...], message, status, success }
+        final decoded = jsonDecode(response.body);
+        debugPrint('🔍 Type racine → ${decoded.runtimeType}');
+
+        final List<dynamic> list;
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          debugPrint('🔍 Clés racine → ${decoded.keys.toList()}');
+          final data = decoded['data'];
+          debugPrint('🔍 Type data → ${data.runtimeType}');
+          list = data is List ? data : [];
+        } else {
+          list = [];
+        }
+
+        debugPrint('📦 ${list.length} mission(s) à parser');
+
+        final missions = <Mission>[];
+        for (int i = 0; i < list.length; i++) {
+          try {
+            missions.add(Mission.fromJson(list[i] as Map<String, dynamic>));
+          } catch (e) {
+            debugPrint('❌ Parsing mission #$i échoué : $e');
+            debugPrint('❌ JSON fautif → ${list[i]}');
+            rethrow;
+          }
+        }
+        debugPrint('✅ ${missions.length} mission(s) parsée(s)');
+        return missions;
       }
       if (response.statusCode == 401) {
         throw Exception('Session expirée. Reconnectez-vous.');
       }
       throw Exception(
           'Impossible de charger les commandes (${response.statusCode}).');
+    } on http.ClientException catch (e) {
+      debugPrint('❌ ClientException → $e');
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    } catch (e, stack) {
+      debugPrint('❌ Erreur getAvailableOrders → $e');
+      debugPrint('❌ Stack → $stack');
+      rethrow;
+    }
+  }
+
+  /// Accepte une mission (le coursier s'y assigne).
+  Future<Mission> acceptMission(int missionId) async {
+    final url = ApiConfig.getUrl(ApiConfig.acceptMissionEndpoint(missionId));
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      if (token == null) throw Exception('Non connecté.');
+
+      debugPrint('🌐 PATCH $url');
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      debugPrint('📡 Status → ${response.statusCode}');
+      debugPrint('📬 Body → ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = body['data'];
+        if (data is Map<String, dynamic>) {
+          return Mission.fromJson(data);
+        }
+        throw Exception('Réponse inattendue du serveur.');
+      }
+      if (response.statusCode == 401) {
+        throw Exception('Session expirée. Reconnectez-vous.');
+      }
+      if (response.statusCode == 409) {
+        throw Exception('Cette mission a déjà été acceptée.');
+      }
+      throw Exception(_errorMessage(
+          response, 'Impossible d\'accepter la mission (${response.statusCode}).'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
