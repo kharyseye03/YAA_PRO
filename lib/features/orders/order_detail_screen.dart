@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
+import 'providers/accept_mission.dart';
 
 // ── Données de la commande ──────────────────────────────────────
 class OrderDetailArgs {
+  /// Identifiant technique de la mission (pour l'acceptation)
+  final int missionId;
   final String id;
   final String amount;
   final String distance;
@@ -23,6 +27,7 @@ class OrderDetailArgs {
   final String? clientNotes;
 
   const OrderDetailArgs({
+    this.missionId = 0,
     required this.id,
     required this.amount,
     required this.distance,
@@ -58,9 +63,27 @@ const _mockOrder = OrderDetailArgs(
   clientNotes: 'Appeler à l\'arrivée. Code portail : 1234',
 );
 
-class OrderDetailScreen extends StatelessWidget {
+class OrderDetailScreen extends ConsumerStatefulWidget {
   final OrderDetailArgs? order;
   const OrderDetailScreen({super.key, this.order});
+
+  @override
+  ConsumerState<OrderDetailScreen> createState() =>
+      _OrderDetailScreenState();
+}
+
+class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
+  bool _isAccepting = false;
+
+  OrderDetailArgs? get order => widget.order;
+
+  Future<void> _onAccept(int missionId) async {
+    setState(() => _isAccepting = true);
+    final success = await acceptMission(context, ref, missionId);
+    if (!mounted) return;
+    setState(() => _isAccepting = false);
+    if (success) Navigator.of(context).pop();
+  }
 
   static ({Color bg, Color text}) _catColors(String cat) =>
       switch (cat.toLowerCase()) {
@@ -404,7 +427,9 @@ class OrderDetailScreen extends StatelessWidget {
                   Expanded(
                     flex: 3,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _isAccepting || o.missionId == 0
+                          ? null
+                          : () => _onAccept(o.missionId),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 50.h),
                         shape: RoundedRectangleBorder(
@@ -412,7 +437,15 @@ class OrderDetailScreen extends StatelessWidget {
                               BorderRadius.circular(AppDimens.radiusMd),
                         ),
                       ),
-                      child: Row(
+                      child: _isAccepting
+                          ? SizedBox(
+                              height: 20.r,
+                              width: 20.r,
+                              child: const CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppColors.white),
+                            )
+                          : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.check_rounded, size: 18.r),

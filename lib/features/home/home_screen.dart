@@ -7,9 +7,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
-import '../../model/order/commande_livraison.dart';
+import '../../model/order/mission.dart';
 import '../auth/providers/driver_provider.dart';
 import '../orders/order_detail_screen.dart';
+import '../orders/providers/accept_mission.dart';
 import '../orders/providers/orders_provider.dart';
 import '../shell/main_shell.dart';
 import 'providers/location_provider.dart';
@@ -343,51 +344,56 @@ class _FloatingRow extends StatelessWidget {
 }
 
 // ── Carte commande — card indépendante ─────────────────────────
-class _OrderCard extends StatelessWidget {
-  final CommandeLivraison order;
+class _OrderCard extends ConsumerStatefulWidget {
+  final Mission order;
   const _OrderCard({required this.order});
 
-  // ⏳ En attendant que le back fournisse ces champs
-  static const _mockAmount = '2 300';
-  static const _mockDistance = '3.2 km';
-  static const _mockTime = '12 min';
-  static const _mockTimerSeconds = 45;
-  static const _mockCategory = 'Restaurant';
+  @override
+  ConsumerState<_OrderCard> createState() => _OrderCardState();
+}
 
-  /// Retourne (bg, text) selon la catégorie
-  static ({Color bg, Color text}) _catColors(String cat) =>
-      switch (cat.toLowerCase()) {
-        'restaurant'   => (bg: AppColors.catRestaurantLight, text: AppColors.catRestaurant),
-        'pharmacie'    => (bg: AppColors.catPharmacieLight,  text: AppColors.catPharmacie),
-        'boutique'     => (bg: AppColors.catBoutiqueLight,   text: AppColors.catBoutique),
-        'supermarché'  => (bg: AppColors.catSupermarcheLight,text: AppColors.catSupermarche),
-        'supermarche'  => (bg: AppColors.catSupermarcheLight,text: AppColors.catSupermarche),
-        _              => (bg: AppColors.primarySurface,     text: AppColors.primary),
+class _OrderCardState extends ConsumerState<_OrderCard> {
+  bool _isAccepting = false;
+
+  /// Couleurs du badge selon le type de service
+  static ({Color bg, Color text}) _catColors(String type) =>
+      switch (type.toUpperCase()) {
+        'LIVRAISON' => (
+            bg: AppColors.catRestaurantLight,
+            text: AppColors.catRestaurant
+          ),
+        'COURSE' => (bg: AppColors.infoLight, text: AppColors.info),
+        _ => (bg: AppColors.primarySurface, text: AppColors.primary),
       };
+
+  Future<void> _onAccept() async {
+    setState(() => _isAccepting = true);
+    await acceptMission(context, ref, widget.order.id);
+    if (mounted) setState(() => _isAccepting = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    const mins = _mockTimerSeconds ~/ 60;
-    const secs = _mockTimerSeconds % 60;
-    final timerStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
-    const timerUrgent = _mockTimerSeconds < 60;
-    final catColor = _catColors(_mockCategory);
+    final order = widget.order;
+    final catColor = _catColors(order.typeService);
+    final anciennete = order.ancienneteLabel;
 
     final args = OrderDetailArgs(
-      id: '#${order.shortRef}',
-      amount: _mockAmount,
-      distance: _mockDistance,
-      estimatedTime: _mockTime,
-      pickup: order.structureName,
-      delivery: order.adresseLivraison,
-      timerSeconds: _mockTimerSeconds,
-      category: _mockCategory,
-      merchantName: order.structureName,
-      merchantAddress: order.structureAdresse,
-      merchantPhone: order.structureTelephone,
+      missionId: order.id,
+      id: order.code,
+      amount: order.montantFormate,
+      distance: order.distanceLabel,
+      estimatedTime: order.dureeLabel,
+      pickup: order.adresseDepart,
+      delivery: order.adresseArrivee,
+      timerSeconds: 0,
+      category: order.typeLabel,
+      merchantName: order.typeLabel,
+      merchantAddress: order.adresseDepart,
+      merchantPhone: '',
       clientName: 'Client',
-      clientPhone: order.telephoneClient,
-      clientNotes: order.description,
+      clientPhone: '',
+      clientNotes: order.instructions,
     );
 
     return Container(
@@ -427,7 +433,7 @@ class _OrderCard extends StatelessWidget {
                         BorderRadius.circular(AppDimens.radiusFull),
                   ),
                   child: Text(
-                    _mockCategory,
+                    order.typeLabel,
                     style: TextStyle(
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
@@ -441,29 +447,22 @@ class _OrderCard extends StatelessWidget {
                   padding: EdgeInsets.symmetric(
                       horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: timerUrgent
-                        ? AppColors.errorLight
-                        : AppColors.warningLight,
+                    color: AppColors.warningLight,
                     borderRadius:
                         BorderRadius.circular(AppDimens.radiusFull),
                   ),
                   child: Row(
                     children: [
                       Icon(LucideIcons.timer,
-                          size: 11.r,
-                          color: timerUrgent
-                              ? AppColors.error
-                              : AppColors.warning),
+                          size: 11.r, color: AppColors.warning),
                       SizedBox(width: 3.w),
                       Text(
-                        timerStr,
+                        anciennete,
                         style: TextStyle(
                           fontFamily: 'Archivo',
                           fontSize: 11.sp,
                           fontWeight: FontWeight.w700,
-                          color: timerUrgent
-                              ? AppColors.error
-                              : AppColors.warning,
+                          color: AppColors.warning,
                         ),
                       ),
                     ],
@@ -479,19 +478,19 @@ class _OrderCard extends StatelessWidget {
                 horizontal: AppDimens.lg.w, vertical: AppDimens.sm.h),
             child: Row(
               children: [
-                Text('$_mockAmount FCFA',
+                Text('${order.montantFormate} ${order.devise}',
                     style: AppTextStyles.h4
                         .copyWith(color: AppColors.black)),
                 SizedBox(width: AppDimens.sm.w),
                 _Dot(),
                 SizedBox(width: AppDimens.sm.w),
-                Text(_mockDistance,
+                Text(order.distanceLabel,
                     style: AppTextStyles.bodySmall
                         .copyWith(color: AppColors.grey500)),
                 SizedBox(width: AppDimens.sm.w),
                 _Dot(),
                 SizedBox(width: AppDimens.sm.w),
-                Text(_mockTime,
+                Text(order.dureeLabel,
                     style: AppTextStyles.bodySmall
                         .copyWith(color: AppColors.grey500)),
               ],
@@ -555,7 +554,7 @@ class _OrderCard extends StatelessWidget {
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
-                        Text(order.structureName,
+                        Text(order.adresseDepart,
                             style: AppTextStyles.labelSmall
                                 .copyWith(color: AppColors.dark)),
                         SizedBox(height: 12.h),
@@ -563,7 +562,7 @@ class _OrderCard extends StatelessWidget {
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
-                        Text(order.adresseLivraison,
+                        Text(order.adresseArrivee,
                             style: AppTextStyles.labelSmall
                                 .copyWith(color: AppColors.dark)),
                       ],
@@ -609,7 +608,7 @@ class _OrderCard extends StatelessWidget {
                 Expanded(
                   flex: 3,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _isAccepting ? null : _onAccept,
                     style: ElevatedButton.styleFrom(
                       minimumSize: Size(double.infinity, 42.h),
                       shape: RoundedRectangleBorder(
@@ -617,7 +616,14 @@ class _OrderCard extends StatelessWidget {
                             BorderRadius.circular(AppDimens.radiusMd),
                       ),
                     ),
-                    child: Row(
+                    child: _isAccepting
+                        ? SizedBox(
+                            height: 18.r,
+                            width: 18.r,
+                            child: const CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.white),
+                          )
+                        : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.check_rounded, size: 15.r),
