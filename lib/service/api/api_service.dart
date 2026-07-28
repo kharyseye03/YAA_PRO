@@ -237,8 +237,29 @@ class ApiService {
   // ── Commandes ─────────────────────────────────────────────
 
   /// Missions disponibles pour le coursier (nécessite le Bearer token).
-  Future<List<Mission>> getAvailableOrders() async {
-    final url = ApiConfig.getUrl(ApiConfig.availableOrdersEndpoint);
+  ///
+  /// [rayon] en mètres, [tri] valeur d'enum backend (ex: MIEUX_PAYE),
+  /// [typeService] LIVRAISON ou COURSE.
+  Future<List<Mission>> getAvailableOrders({
+    double? latitude,
+    double? longitude,
+    int? rayon,
+    String? tri,
+    String? typeService,
+    int? limit,
+  }) async {
+    final params = <String, String>{
+      if (latitude != null) 'latitude': '$latitude',
+      if (longitude != null) 'longitude': '$longitude',
+      if (rayon != null) 'rayon': '$rayon',
+      if (tri != null) 'tri': tri,
+      if (typeService != null) 'typeService': typeService,
+      if (limit != null) 'limit': '$limit',
+    };
+    final uri = Uri.parse(ApiConfig.getUrl(ApiConfig.availableOrdersEndpoint))
+        .replace(queryParameters: params.isEmpty ? null : params);
+    final url = uri.toString();
+
     try {
       final token = await TokenStorage.instance.getAccessToken();
       debugPrint('🌐 GET $url');
@@ -246,7 +267,7 @@ class ApiService {
       if (token == null) throw Exception('Non connecté.');
 
       final response = await http.get(
-        Uri.parse(url),
+        uri,
         headers: {'Authorization': 'Bearer $token'},
       );
 
@@ -301,6 +322,37 @@ class ApiService {
     }
   }
 
+  /// Détail complet d'une mission (contacts, adresses, statut).
+  Future<Mission> getMissionDetail(int missionId) async {
+    final url = ApiConfig.getUrl(ApiConfig.missionDetailEndpoint(missionId));
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      if (token == null) throw Exception('Non connecté.');
+
+      debugPrint('🌐 GET $url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      debugPrint('📡 Status → ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = body['data'];
+        if (data is Map<String, dynamic>) return Mission.fromJson(data);
+        throw Exception('Mission introuvable.');
+      }
+      if (response.statusCode == 401) {
+        throw Exception('Session expirée. Reconnectez-vous.');
+      }
+      throw Exception(_errorMessage(
+          response, 'Impossible de charger la mission (${response.statusCode}).'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
   /// Accepte une mission (le coursier s'y assigne).
   Future<Mission> acceptMission(int missionId) async {
     final url = ApiConfig.getUrl(ApiConfig.acceptMissionEndpoint(missionId));
@@ -336,6 +388,55 @@ class ApiService {
       }
       throw Exception(_errorMessage(
           response, 'Impossible d\'accepter la mission (${response.statusCode}).'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  /// Marque le colis comme récupéré : la mission passe en
+  /// PRISE_EN_CHARGE_EFFECTUEE et le livreur part vers la livraison.
+  Future<Mission> pickupMission(int missionId) => _patchMission(
+        ApiConfig.pickupMissionEndpoint(missionId),
+        'Impossible de confirmer la récupération',
+      );
+
+  /// Clôture la mission : passage en COURSE_TERMINEE.
+  Future<Mission> deliverMission(int missionId) => _patchMission(
+        ApiConfig.deliverMissionEndpoint(missionId),
+        'Impossible de confirmer la livraison',
+      );
+
+  /// Fait avancer une mission via un PATCH et retourne son nouvel état.
+  Future<Mission> _patchMission(String endpoint, String errorLabel) async {
+    final url = ApiConfig.getUrl(endpoint);
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      if (token == null) throw Exception('Non connecté.');
+
+      debugPrint('🌐 PATCH $url');
+      final response = await http.patch(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      debugPrint('📡 Status → ${response.statusCode}');
+      debugPrint('📬 Body → ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = body['data'];
+        if (data is Map<String, dynamic>) return Mission.fromJson(data);
+        throw Exception('Réponse inattendue du serveur.');
+      }
+      if (response.statusCode == 401) {
+        throw Exception('Session expirée. Reconnectez-vous.');
+      }
+      throw Exception(
+          _errorMessage(response, '$errorLabel (${response.statusCode}).'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');

@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart' show Position;
+import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
@@ -20,9 +21,9 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Dernière commande arrivée = première de la liste
-    // (triée par createdDate décroissante dans le provider)
-    final orders = ref.watch(availableOrdersProvider).valueOrNull;
+    // Dernière commande arrivée = première de la liste complète
+    // (triée par date décroissante, indépendante du filtre Commandes)
+    final orders = ref.watch(dashboardOrdersProvider).valueOrNull;
     final latestOrder =
         orders == null || orders.isEmpty ? null : orders.first;
 
@@ -30,7 +31,7 @@ class HomeScreen extends ConsumerWidget {
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light, // icônes blanches (Android)
-        statusBarBrightness: Brightness.dark,       // iOS
+        statusBarBrightness: Brightness.dark,       // iOS b
       ),
       child: Scaffold(
       backgroundColor: Colors.transparent,
@@ -58,11 +59,7 @@ class HomeScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _FloatingRow(
-                  count: ref
-                          .watch(availableOrdersProvider)
-                          .valueOrNull
-                          ?.length ??
-                      0,
+                  count: orders?.length ?? 0,
                   onTapAll: () =>
                       ref.read(shellIndexProvider.notifier).state = 1,
                 ),
@@ -88,18 +85,67 @@ class _DashboardMap extends ConsumerStatefulWidget {
 }
 
 class _DashboardMapState extends ConsumerState<_DashboardMap> {
-  GoogleMapController? _controller;
+  GoogleMapViewController? _controller;
+  Circle? _halo;
 
   // Dakar par défaut en attendant la position GPS
   static const _fallbackCamera = CameraPosition(
-    target: LatLng(14.6928, -17.4467),
+    target: LatLng(latitude: 14.6928, longitude: -17.4467),
     zoom: 12,
   );
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _controller = null;
     super.dispose();
+  }
+// faut verrouiller ta machineeeeeeeeeeeeeeeeeee
+  Future<void> _onViewCreated(GoogleMapViewController controller) async {
+    _controller = controller;
+    // La vue peut être détruite avant que ces appels aboutissent
+    // (bascule immédiate vers une mission en cours au démarrage).
+    try {
+      await controller.setMyLocationEnabled(true);
+      if (!mounted) return;
+      final loc = ref.read(currentLocationProvider).valueOrNull;
+      if (loc != null) await _centerOn(loc.position);
+    } catch (e) {
+      debugPrint('Carte dashboard indisponible : $e');
+    }
+  }
+
+  /// Recentre la carte et repositionne le halo autour du livreur.
+  Future<void> _centerOn(Position position) async {
+    final controller = _controller;
+    if (controller == null || !mounted) return;
+    final target =
+        LatLng(latitude: position.latitude, longitude: position.longitude);
+
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: 15.5),
+        ),
+      );
+
+      // Halo bleu autour de la position, pour la rendre bien visible
+      if (_halo != null) {
+        await controller.removeCircles([_halo!]);
+        _halo = null;
+      }
+      final added = await controller.addCircles([
+        CircleOptions(
+          position: target,
+          radius: 60,
+          fillColor: AppColors.info.withValues(alpha: 0.15),
+          strokeColor: AppColors.info.withValues(alpha: 0.4),
+          strokeWidth: 2,
+        ),
+      ]);
+      if (mounted) _halo = added.isNotEmpty ? added.first : null;
+    } catch (e) {
+      debugPrint('Carte dashboard indisponible : $e');
+    }
   }
 
   @override
@@ -107,58 +153,26 @@ class _DashboardMapState extends ConsumerState<_DashboardMap> {
     // Recentre la carte quand la position arrive/change
     ref.listen(currentLocationProvider, (previous, next) {
       final loc = next.valueOrNull;
-      if (loc != null && _controller != null) {
-        _controller!.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target:
-                  LatLng(loc.position.latitude, loc.position.longitude),
-              zoom: 15.5,
-            ),
-          ),
-        );
-      }
+      if (loc != null) _centerOn(loc.position);
     });
 
     final loc = ref.watch(currentLocationProvider).valueOrNull;
-    final target = loc != null
-        ? LatLng(loc.position.latitude, loc.position.longitude)
-        : null;
-    final initialCamera = target != null
-        ? CameraPosition(target: target, zoom: 15.5)
+    final initialCamera = loc != null
+        ? CameraPosition(
+            target: LatLng(
+              latitude: loc.position.latitude,
+              longitude: loc.position.longitude,
+            ),
+            zoom: 15.5,
+          )
         : _fallbackCamera;
 
-    return GoogleMap(
+    return GoogleMapsMapView(
       initialCameraPosition: initialCamera,
-      onMapCreated: (controller) => _controller = controller,
-      myLocationEnabled: false,
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: false,
-      compassEnabled: false,
-      mapToolbarEnabled: false,
-      buildingsEnabled: false,
-      // ── Position bien visible : pin bleu + halo ──
-      markers: {
-        if (target != null)
-          Marker(
-            markerId: const MarkerId('me'),
-            position: target,
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueAzure),
-            anchor: const Offset(0.5, 1),
-          ),
-      },
-      circles: {
-        if (target != null)
-          Circle(
-            circleId: const CircleId('me_halo'),
-            center: target,
-            radius: 60,
-            fillColor: AppColors.info.withValues(alpha: 0.15),
-            strokeColor: AppColors.info.withValues(alpha: 0.4),
-            strokeWidth: 1,
-          ),
-      },
+      onViewCreated: _onViewCreated,
+      initialZoomControlsEnabled: false,
+      initialCompassEnabled: false,
+      initialMapToolbarEnabled: false,
     );
   }
 }
@@ -377,6 +391,11 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
     final order = widget.order;
     final catColor = _catColors(order.typeService);
     final anciennete = order.ancienneteLabel;
+    // Distance jusqu'au point de récupération (≠ longueur du trajet)
+    final pickupDistance = distanceToPickupLabel(
+      order,
+      ref.watch(currentLocationProvider).valueOrNull?.position,
+    );
 
     final args = OrderDetailArgs(
       missionId: order.id,
@@ -550,7 +569,10 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Départ',
+                        Text(
+                            pickupDistance != null
+                                ? 'Départ · $pickupDistance'
+                                : 'Départ',
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
@@ -585,7 +607,9 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 Expanded(
                   flex: 2,
                   child: OutlinedButton(
-                    onPressed: () {},
+                    onPressed: _isAccepting
+                        ? null
+                        : () => refuseMission(ref, order.id),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.grey600,
                       side: const BorderSide(color: AppColors.grey300),

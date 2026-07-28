@@ -47,3 +47,6 @@ app.*.map.json
 # Fichiers de config sensibles (cles API, URLs backend)
 lib/config/api/api_config.dart
 lib/config/maps/maps_config.dart
+
+# Dossiers de travail des sessions Claude Code
+.claude/worktrees/

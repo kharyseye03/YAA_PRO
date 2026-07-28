@@ -13,6 +13,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Requis par le Navigation SDK tant que minSdk < 34
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -24,7 +26,8 @@ android {
         applicationId = "com.example.yaa_pro"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Navigation SDK Google Maps : API 24 minimum
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -37,6 +40,18 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+configurations.all {
+    // Le Navigation SDK embarque déjà les classes du SDK Maps :
+    // toute dépendance vers play-services-maps créerait des classes
+    // en double à la compilation.
+    exclude(group = "com.google.android.gms", module = "play-services-maps")
+}
+
+dependencies {
+    // Le Navigation SDK exige la variante « nio » du desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 }
 
 flutter {

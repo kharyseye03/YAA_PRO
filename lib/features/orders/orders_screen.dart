@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import '../../model/order/mission.dart';
+import '../home/providers/location_provider.dart';
 import 'order_detail_screen.dart';
 import 'providers/accept_mission.dart';
 import 'providers/orders_provider.dart';
@@ -19,12 +20,13 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
-  int _filterIndex = 0;
-  final _filters = ['Toutes', 'Proches', 'Bien payées'];
+  static const _filters = OrderFilter.values;
 
   @override
   Widget build(BuildContext context) {
-    final ordersAsync = ref.watch(availableOrdersProvider);
+    final ordersAsync = ref.watch(visibleOrdersProvider);
+    final currentFilter = ref.watch(orderFilterProvider);
+    final radius = ref.watch(nearRadiusProvider);
     final count = ordersAsync.valueOrNull?.length;
 
     return Scaffold(
@@ -66,31 +68,55 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 itemCount: _filters.length,
                 separatorBuilder: (_, __) => SizedBox(width: AppDimens.sm.w),
                 itemBuilder: (context, i) {
-                  final selected = i == _filterIndex;
+                  final filter = _filters[i];
+                  final selected = filter == currentFilter;
+                  // Le chip « Proches » sélectionné affiche le rayon
+                  // choisi et ouvre le menu des rayons au tap.
+                  final isRadiusChip =
+                      filter == OrderFilter.proches && selected;
+
+                  final chip = _FilterChip(
+                    label: isRadiusChip
+                        ? '${filter.label} · ${radiusLabel(radius)}'
+                        : filter.label,
+                    selected: selected,
+                    showChevron: isRadiusChip,
+                  );
+
+                  if (isRadiusChip) {
+                    return PopupMenuButton<int>(
+                      initialValue: radius,
+                      offset: Offset(0, 42.h),
+                      color: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppDimens.radiusMd),
+                      ),
+                      onSelected: (v) =>
+                          ref.read(nearRadiusProvider.notifier).state = v,
+                      itemBuilder: (_) => [
+                        for (final m in kNearRadiusOptions)
+                          PopupMenuItem(
+                            value: m,
+                            child: Text(
+                              radiusLabel(m),
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.dark,
+                                fontWeight: m == radius
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                      ],
+                      child: chip,
+                    );
+                  }
+
                   return GestureDetector(
-                    onTap: () => setState(() => _filterIndex = i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.symmetric(
-                          horizontal: AppDimens.lg.w, vertical: 8.h),
-                      decoration: BoxDecoration(
-                        color: selected ? AppColors.primary : AppColors.white,
-                        borderRadius: BorderRadius.circular(AppDimens.radiusFull),
-                        border: Border.all(
-                          color: selected ? AppColors.primary : AppColors.grey300,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        _filters[i],
-                        style: TextStyle(
-                          fontFamily: 'Archivo',
-                          fontSize: 13.sp,
-                          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                          color: selected ? AppColors.white : AppColors.grey600,
-                        ),
-                      ),
-                    ),
+                    onTap: () =>
+                        ref.read(orderFilterProvider.notifier).state = filter,
+                    child: chip,
                   );
                 },
               ),
@@ -101,8 +127,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             Expanded(
               child: RefreshIndicator(
                 color: AppColors.primary,
-                onRefresh: () async =>
-                    ref.invalidate(availableOrdersProvider),
+                onRefresh: () async {
+                  ref.invalidate(allOrdersProvider);
+                  ref.invalidate(availableOrdersProvider);
+                },
                 child: ordersAsync.when(
                   loading: () => const Center(
                     child: CircularProgressIndicator(
@@ -115,8 +143,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       icon: LucideIcons.wifiOff,
                       message:
                           e.toString().replaceFirst('Exception: ', ''),
-                      onRetry: () =>
-                          ref.invalidate(availableOrdersProvider),
+                      onRetry: () {
+                        ref.invalidate(allOrdersProvider);
+                        ref.invalidate(availableOrdersProvider);
+                      },
                     );
                   },
                   data: (orders) => orders.isEmpty
@@ -124,8 +154,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                           icon: LucideIcons.packageOpen,
                           message:
                               'Aucune commande disponible pour le moment.',
-                          onRetry: () =>
-                              ref.invalidate(availableOrdersProvider),
+                          onRetry: () {
+                            ref.invalidate(allOrdersProvider);
+                            ref.invalidate(availableOrdersProvider);
+                          },
                         )
                       : ListView.separated(
                           physics:
@@ -143,6 +175,55 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Chip de filtre ──────────────────────────────────────────────
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final bool showChevron;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    this.showChevron = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: EdgeInsets.symmetric(
+          horizontal: AppDimens.lg.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.primary : AppColors.white,
+        borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+        border: Border.all(
+          color: selected ? AppColors.primary : AppColors.grey300,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Archivo',
+              fontSize: 13.sp,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: selected ? AppColors.white : AppColors.grey600,
+            ),
+          ),
+          if (showChevron) ...[
+            SizedBox(width: 4.w),
+            Icon(LucideIcons.chevronDown,
+                size: 13.r, color: AppColors.white),
+          ],
+        ],
       ),
     );
   }
@@ -229,6 +310,11 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
     final order = widget.order;
     final catColor = _catColors(order.typeService);
     final anciennete = order.ancienneteLabel;
+    // Distance jusqu'au point de récupération (≠ longueur du trajet)
+    final pickupDistance = distanceToPickupLabel(
+      order,
+      ref.watch(currentLocationProvider).valueOrNull?.position,
+    );
 
     final args = OrderDetailArgs(
       missionId: order.id,
@@ -425,7 +511,10 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Départ',
+                        Text(
+                            pickupDistance != null
+                                ? 'Départ · $pickupDistance'
+                                : 'Départ',
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.grey500)),
                         SizedBox(height: 2.h),
@@ -462,7 +551,9 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                 Expanded(
                   flex: 2,
                   child: OutlinedButton(
-                    onPressed: () {},
+                    onPressed: _isAccepting
+                        ? null
+                        : () => refuseMission(ref, order.id),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.grey600,
                       side: const BorderSide(color: AppColors.grey300),
