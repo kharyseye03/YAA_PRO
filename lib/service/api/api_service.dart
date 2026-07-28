@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 import '../../config/api/api_config.dart';
 import '../../model/auth/auth_response.dart';
 import '../../model/driver/driver_detail.dart';
+import '../../model/gains/gains_summary.dart';
 import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
 
@@ -437,6 +438,39 @@ class ApiService {
       }
       throw Exception(
           _errorMessage(response, '$errorLabel (${response.statusCode}).'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  // ── Gains ─────────────────────────────────────────────────
+
+  /// Gains du livreur et historique de ses missions terminées.
+  Future<GainsSummary> getGains() async {
+    final url = ApiConfig.getUrl(ApiConfig.gainsEndpoint);
+    try {
+      final token = await TokenStorage.instance.getAccessToken();
+      if (token == null) throw Exception('Non connecté.');
+
+      debugPrint('🌐 GET $url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      debugPrint('📡 Status → ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = body['data'];
+        if (data is Map<String, dynamic>) return GainsSummary.fromJson(data);
+        return GainsSummary.empty;
+      }
+      if (response.statusCode == 401) {
+        throw Exception('Session expirée. Reconnectez-vous.');
+      }
+      throw Exception(_errorMessage(
+          response, 'Impossible de charger vos gains (${response.statusCode}).'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');

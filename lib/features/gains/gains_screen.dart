@@ -1,74 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
-
-// ── Modèle course ───────────────────────────────────────────────
-class _Course {
-  final String date;
-  final String from;
-  final String to;
-  final String amount;
-  final String category;
-  const _Course({
-    required this.date,
-    required this.from,
-    required this.to,
-    required this.amount,
-    required this.category,
-  });
-}
-
-// ── Groupe par jour ─────────────────────────────────────────────
-class _DayGroup {
-  final String label;
-  final String total;
-  final List<_Course> courses;
-  const _DayGroup({
-    required this.label,
-    required this.total,
-    required this.courses,
-  });
-}
-
-const _groups = [
-  _DayGroup(
-    label: 'Aujourd\'hui',
-    total: '15 500',
-    courses: [
-      _Course(date: '14h32', from: 'Sandaga', to: 'Keur Gorgui', amount: '2 300', category: 'Restaurant'),
-      _Course(date: '11h15', from: 'Plateau', to: 'Mermoz', amount: '1 800', category: 'Boutique'),
-      _Course(date: '09h47', from: 'Point E', to: 'Almadies', amount: '3 800', category: 'Pharmacie'),
-      _Course(date: '08h10', from: 'Grand Yoff', to: 'Parcelles', amount: '1 500', category: 'Supermarché'),
-      _Course(date: '07h55', from: 'Liberté 6', to: 'Fann', amount: '2 100', category: 'Restaurant'),
-      _Course(date: '07h20', from: 'Médina', to: 'Sacré Cœur', amount: '4 000', category: 'Boutique'),
-    ],
-  ),
-  _DayGroup(
-    label: 'Hier',
-    total: '12 200',
-    courses: [
-      _Course(date: '17h05', from: 'Almadies', to: 'Ngor', amount: '2 500', category: 'Restaurant'),
-      _Course(date: '14h30', from: 'Ouakam', to: 'Mermoz', amount: '3 200', category: 'Pharmacie'),
-      _Course(date: '10h15', from: 'Plateau', to: 'Hann', amount: '2 100', category: 'Boutique'),
-      _Course(date: '08h40', from: 'Liberté 6', to: 'Grand Dakar', amount: '4 400', category: 'Supermarché'),
-    ],
-  ),
-];
+import '../../model/gains/gains_summary.dart';
+import 'providers/gains_provider.dart';
+import 'widgets/mission_gain_sheet.dart';
 
 // ── Écran ───────────────────────────────────────────────────────
-class GainsScreen extends StatefulWidget {
+class GainsScreen extends ConsumerStatefulWidget {
   const GainsScreen({super.key});
 
   @override
-  State<GainsScreen> createState() => _GainsScreenState();
+  ConsumerState<GainsScreen> createState() => _GainsScreenState();
 }
 
-class _GainsScreenState extends State<GainsScreen> {
+class _GainsScreenState extends ConsumerState<GainsScreen> {
   bool _balanceVisible = true;
 
   @override
   Widget build(BuildContext context) {
+    final daysAsync = ref.watch(gainsByDayProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffold,
       body: CustomScrollView(
@@ -267,57 +220,105 @@ class _GainsScreenState extends State<GainsScreen> {
                 AppDimens.screenPadding.w,
                 AppDimens.md.h,
               ),
-              child: Text('Mes courses', style: AppTextStyles.labelLarge),
+              child: Row(
+                children: [
+                  Text('Mes courses', style: AppTextStyles.labelLarge),
+                  const Spacer(),
+                  if (daysAsync.valueOrNull != null)
+                    Text(
+                      '${ref.watch(gainsProvider).valueOrNull?.nombreMissions ?? 0} au total',
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.grey500),
+                    ),
+                ],
+              ),
             ),
           ),
 
-          // ── Liste groupée par jour ──────────────────────────
-          for (final group in _groups) ...[
-            // Label jour + total
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppDimens.screenPadding.w,
-                  AppDimens.sm.h,
-                  AppDimens.screenPadding.w,
-                  AppDimens.sm.h,
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      group.label,
-                      style: AppTextStyles.labelSmall
-                          .copyWith(color: AppColors.grey600),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '+${group.total} FCFA',
-                      style: AppTextStyles.labelSmall
-                          .copyWith(color: AppColors.success),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Tiles
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                AppDimens.screenPadding.w,
-                0,
-                AppDimens.screenPadding.w,
-                AppDimens.md.h,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => Padding(
-                    padding: EdgeInsets.only(bottom: AppDimens.sm.h),
-                    child: _CourseTile(course: group.courses[i]),
+          // ── Historique groupé par jour ──────────────────────
+          ...switch (daysAsync) {
+            AsyncLoading() => [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 60.h),
+                    child: const Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.primary)),
                   ),
-                  childCount: group.courses.length,
                 ),
-              ),
-            ),
-          ],
+              ],
+            AsyncError(:final error) => [
+                SliverToBoxAdapter(
+                  child: _GainsMessage(
+                    icon: LucideIcons.wifiOff,
+                    message:
+                        error.toString().replaceFirst('Exception: ', ''),
+                    onRetry: () => ref.invalidate(gainsProvider),
+                  ),
+                ),
+              ],
+            AsyncValue(:final value) when value == null || value.isEmpty =>
+              [
+                SliverToBoxAdapter(
+                  child: _GainsMessage(
+                    icon: LucideIcons.receipt,
+                    message:
+                        'Aucune course terminée pour le moment.\nVos gains apparaîtront ici.',
+                    onRetry: () => ref.invalidate(gainsProvider),
+                  ),
+                ),
+              ],
+            AsyncValue(:final value!) => [
+                for (final day in value) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        AppDimens.screenPadding.w,
+                        AppDimens.sm.h,
+                        AppDimens.screenPadding.w,
+                        AppDimens.sm.h,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            day.label,
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.grey600),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '+${formatMontant(day.total)} FCFA',
+                            style: AppTextStyles.labelSmall
+                                .copyWith(color: AppColors.success),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppDimens.screenPadding.w,
+                      0,
+                      AppDimens.screenPadding.w,
+                      AppDimens.md.h,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => Padding(
+                          padding: EdgeInsets.only(bottom: AppDimens.sm.h),
+                          child: _CourseTile(
+                            mission: day.missions[i],
+                            onTap: () => showMissionGainSheet(
+                                context, day.missions[i]),
+                          ),
+                        ),
+                        childCount: day.missions.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+          },
 
           SliverToBoxAdapter(child: SizedBox(height: 90.h)),
         ],
@@ -326,87 +327,133 @@ class _GainsScreenState extends State<GainsScreen> {
   }
 }
 
+// ── État vide / erreur ──────────────────────────────────────────
+class _GainsMessage extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final VoidCallback onRetry;
+
+  const _GainsMessage({
+    required this.icon,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          AppDimens.xxl.w, 50.h, AppDimens.xxl.w, 0),
+      child: Column(
+        children: [
+          Icon(icon, size: 44.r, color: AppColors.grey300),
+          SizedBox(height: AppDimens.lg.h),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyMedium
+                .copyWith(color: AppColors.grey500),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: Text('Actualiser',
+                style: AppTextStyles.labelMedium
+                    .copyWith(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Tile course ─────────────────────────────────────────────────
 class _CourseTile extends StatelessWidget {
-  final _Course course;
-  const _CourseTile({required this.course});
+  final MissionGain mission;
+  final VoidCallback onTap;
 
-  static ({Color bg, Color icon}) _catColor(String cat) =>
-      switch (cat.toLowerCase()) {
-        'restaurant'  => (bg: AppColors.catRestaurantLight, icon: AppColors.catRestaurant),
-        'pharmacie'   => (bg: AppColors.catPharmacieLight,  icon: AppColors.catPharmacie),
-        'boutique'    => (bg: AppColors.catBoutiqueLight,   icon: AppColors.catBoutique),
-        'supermarché' => (bg: AppColors.catSupermarcheLight,icon: AppColors.catSupermarche),
-        _             => (bg: AppColors.primarySurface,     icon: AppColors.primary),
+  const _CourseTile({required this.mission, required this.onTap});
+
+  /// Couleurs selon le type de service.
+  static ({Color bg, Color icon}) typeColor(String type) =>
+      switch (type.toUpperCase()) {
+        'LIVRAISON' => (
+            bg: AppColors.catRestaurantLight,
+            icon: AppColors.catRestaurant
+          ),
+        'COURSE' => (bg: AppColors.infoLight, icon: AppColors.info),
+        _ => (bg: AppColors.primarySurface, icon: AppColors.primary),
       };
 
-  static IconData _catIcon(String cat) =>
-      switch (cat.toLowerCase()) {
-        'restaurant'  => Icons.restaurant_rounded,
-        'pharmacie'   => Icons.local_pharmacy_rounded,
-        'boutique'    => Icons.shopping_bag_rounded,
-        'supermarché' => Icons.shopping_cart_rounded,
-        _             => Icons.local_shipping_rounded,
+  static IconData typeIcon(String type) => switch (type.toUpperCase()) {
+        'LIVRAISON' => LucideIcons.package,
+        'COURSE' => LucideIcons.navigation,
+        _ => LucideIcons.mapPin,
       };
 
   @override
   Widget build(BuildContext context) {
-    final cc = _catColor(course.category);
+    final cc = typeColor(mission.typeService);
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: AppDimens.md.w, vertical: AppDimens.md.h),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Icône catégorie
-          Container(
-            width: 42.r,
-            height: 42.r,
-            decoration: BoxDecoration(
-              color: cc.bg,
-              borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: AppDimens.md.w, vertical: AppDimens.md.h),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppDimens.radiusMd),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Icon(_catIcon(course.category),
-                color: cc.icon, size: 20.r),
-          ),
-          SizedBox(width: AppDimens.md.w),
-
-          // Trajet
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${course.from} → ${course.to}',
-                  style: AppTextStyles.labelSmall
-                      .copyWith(color: AppColors.dark),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 3.h),
-                Text(course.date, style: AppTextStyles.caption),
-              ],
+          ],
+        ),
+        child: Row(
+          children: [
+            // Icône type de service
+            Container(
+              width: 42.r,
+              height: 42.r,
+              decoration: BoxDecoration(
+                color: cc.bg,
+                borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+              ),
+              child: Icon(typeIcon(mission.typeService),
+                  color: cc.icon, size: 20.r),
             ),
-          ),
+            SizedBox(width: AppDimens.md.w),
 
-          // Montant
-          Text(
-            '+${course.amount} F',
-            style: AppTextStyles.labelMedium
-                .copyWith(color: AppColors.success),
-          ),
-        ],
+            // Trajet
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${mission.adresseDepart} → ${mission.adresseArrivee}',
+                    style: AppTextStyles.labelSmall
+                        .copyWith(color: AppColors.dark),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 3.h),
+                  Text('${mission.typeLabel} · ${mission.heure}',
+                      style: AppTextStyles.caption),
+                ],
+              ),
+            ),
+            SizedBox(width: AppDimens.sm.w),
+
+            // Montant
+            Text(
+              '+${mission.gainFormate} F',
+              style: AppTextStyles.labelMedium
+                  .copyWith(color: AppColors.success),
+            ),
+          ],
+        ),
       ),
     );
   }
