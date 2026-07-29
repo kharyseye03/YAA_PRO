@@ -447,8 +447,22 @@ class ApiService {
   // ── Gains ─────────────────────────────────────────────────
 
   /// Gains du livreur et historique de ses missions terminées.
-  Future<GainsSummary> getGains() async {
-    final url = ApiConfig.getUrl(ApiConfig.gainsEndpoint);
+  ///
+  /// [typeService] : LIVRAISON, COURSE ou LIVRAISON_COMMANDE.
+  /// [dateDebut] / [dateFin] : bornes au format `2026-07-28`.
+  Future<GainsSummary> getGains({
+    String? typeService,
+    String? dateDebut,
+    String? dateFin,
+  }) async {
+    final params = <String, String>{
+      if (typeService != null) 'typeService': typeService,
+      if (dateDebut != null) 'dateDebut': dateDebut,
+      if (dateFin != null) 'dateFin': dateFin,
+    };
+    final url = Uri.parse(ApiConfig.getUrl(ApiConfig.gainsEndpoint))
+        .replace(queryParameters: params.isEmpty ? null : params)
+        .toString();
     try {
       final token = await TokenStorage.instance.getAccessToken();
       if (token == null) throw Exception('Non connecté.');

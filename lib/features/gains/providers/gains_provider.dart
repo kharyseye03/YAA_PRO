@@ -1,10 +1,93 @@
+import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../model/gains/gains_summary.dart';
+import '../../../model/order/type_service.dart';
 import '../../auth/providers/auth_notifier.dart';
 
-/// Gains du livreur et historique de ses missions terminées.
+/// Périodes proposées au livreur pour consulter ses gains.
+enum GainsPeriod {
+  tout('Tout'),
+  aujourdhui('Aujourd\'hui'),
+  septJours('7 jours'),
+  trenteJours('30 jours'),
+  personnalisee('Personnalisée');
+
+  final String label;
+  const GainsPeriod(this.label);
+
+  /// Complément affiché à côté du montant total : « +5 000 FCFA
+  /// aujourd'hui », « … sur 7 jours »…
+  String get totalSuffix => switch (this) {
+        tout => 'au total',
+        aujourdhui => 'aujourd\'hui',
+        septJours => 'sur 7 jours',
+        trenteJours => 'sur 30 jours',
+        personnalisee => 'sur la période',
+      };
+
+  /// Bornes envoyées à l'API. `null` = pas de filtre de date.
+  DateTimeRange? rangeFrom(DateTimeRange? custom) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return switch (this) {
+      tout => null,
+      aujourdhui => DateTimeRange(start: today, end: today),
+      septJours => DateTimeRange(
+          start: today.subtract(const Duration(days: 6)), end: today),
+      trenteJours => DateTimeRange(
+          start: today.subtract(const Duration(days: 29)), end: today),
+      personnalisee => custom,
+    };
+  }
+}
+
+/// Filtres appliqués à l'historique des gains.
+class GainsFilter {
+  final GainsPeriod period;
+  final DateTimeRange? customRange;
+  final TypeService? type;
+
+  const GainsFilter({
+    this.period = GainsPeriod.tout,
+    this.customRange,
+    this.type,
+  });
+
+  GainsFilter copyWith({
+    GainsPeriod? period,
+    DateTimeRange? customRange,
+    TypeService? type,
+    bool clearType = false,
+  }) {
+    return GainsFilter(
+      period: period ?? this.period,
+      customRange: customRange ?? this.customRange,
+      type: clearType ? null : type ?? this.type,
+    );
+  }
+
+  DateTimeRange? get range => period.rangeFrom(customRange);
+}
+
+final gainsFilterProvider =
+    StateProvider<GainsFilter>((ref) => const GainsFilter());
+
+/// `2026-07-28`
+String _apiDate(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
+/// Gains du livreur et historique de ses missions terminées,
+/// selon les filtres sélectionnés.
 final gainsProvider = FutureProvider<GainsSummary>((ref) async {
-  return ref.read(apiServiceProvider).getGains();
+  final filter = ref.watch(gainsFilterProvider);
+  final range = filter.range;
+
+  return ref.read(apiServiceProvider).getGains(
+        typeService: filter.type?.value,
+        dateDebut: range != null ? _apiDate(range.start) : null,
+        dateFin: range != null ? _apiDate(range.end) : null,
+      );
 });
 
 /// Missions regroupées par jour, du plus récent au plus ancien.

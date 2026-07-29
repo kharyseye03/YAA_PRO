@@ -377,6 +377,10 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
             text: AppColors.catRestaurant
           ),
         'COURSE' => (bg: AppColors.infoLight, text: AppColors.info),
+        'LIVRAISON_COMMANDE' => (
+            bg: AppColors.catBoutiqueLight,
+            text: AppColors.catBoutique
+          ),
         _ => (bg: AppColors.primarySurface, text: AppColors.primary),
       };
 

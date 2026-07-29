@@ -1,4 +1,5 @@
 import 'mission_statut.dart';
+import 'type_service.dart';
 
 /// Mission disponible pour un coursier (livraison ou course).
 class Mission {
@@ -54,9 +55,11 @@ class Mission {
     this.telephoneDestinataire,
   });
 
-  bool get isLivraison => typeService.toUpperCase() == 'LIVRAISON';
-
+  TypeService get typeServiceEnum => TypeService.from(typeService);
   MissionStatut get statutEnum => MissionStatut.from(statut);
+
+  /// Transport d'un objet (par opposition au transport d'une personne).
+  bool get isLivraison => !typeServiceEnum.transportePersonne;
 
   /// True une fois le colis récupéré : le livreur roule alors vers
   /// le point de livraison (étape 2).
@@ -88,11 +91,8 @@ class Mission {
 
   String get dureeLabel => '$dureeMinutes min';
 
-  /// Libellé du type de service : « Livraison » / « Course »
-  String get typeLabel => typeService.isEmpty
-      ? ''
-      : typeService[0].toUpperCase() +
-          typeService.substring(1).toLowerCase();
+  /// Libellé du type de service : « Livraison », « Course », « Commande »
+  String get typeLabel => typeServiceEnum.label;
 
   /// Ancienneté de la mission : « à l'instant », « 5 min », « 2 h »
   String get ancienneteLabel {

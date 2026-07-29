@@ -8,6 +8,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/constants.dart';
 import '../../model/order/mission.dart';
+import '../../model/order/mission_labels.dart';
 import '../../model/order/nav_route.dart';
 import '../../service/maps/navigation_service.dart';
 import '../auth/providers/auth_notifier.dart';
@@ -486,14 +487,6 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   }
 }
 
-/// Libellé du bouton d'action selon l'étape et le type de mission.
-String stepActionLabel(Mission mission) {
-  if (mission.isPickedUp) {
-    return mission.isLivraison ? 'J\'ai livré le colis' : 'Course terminée';
-  }
-  return mission.isLivraison ? 'J\'ai récupéré le colis' : 'J\'ai récupéré';
-}
-
 // ── Barre basse compacte pendant le guidage ───────────────────────
 class _NavigatingPanel extends StatelessWidget {
   final Mission mission;
@@ -542,9 +535,7 @@ class _NavigatingPanel extends StatelessWidget {
                 SizedBox(width: 6.w),
                 Expanded(
                   child: Text(
-                    mission.isPickedUp
-                        ? 'Vous êtes arrivé chez le destinataire'
-                        : 'Vous êtes arrivé au point de récupération',
+                    MissionLabels.of(mission).arrivalMessage,
                     style: AppTextStyles.labelSmall
                         .copyWith(color: AppColors.success),
                   ),
@@ -578,7 +569,7 @@ class _NavigatingPanel extends StatelessWidget {
                         Icon(LucideIcons.packageCheck, size: 18.r),
                         SizedBox(width: 8.w),
                         Text(
-                          stepActionLabel(mission),
+                          MissionLabels.of(mission).actionButton,
                           style: TextStyle(
                             fontFamily: 'Archivo',
                             fontSize: 15.sp,
@@ -693,29 +684,12 @@ class _MissionPanel extends StatelessWidget {
     required this.onStepAction,
   });
 
-  /// Interlocuteur de l'étape en cours : expéditeur avant la
-  /// récupération, destinataire pendant la livraison.
-  ({String label, String? name, String? phone}) get _contact {
-    if (!mission.isLivraison) {
-      return (
-        label: 'Client',
-        name: mission.customerFullName,
-        phone: mission.customerTelephone,
+  /// Interlocuteur de l'étape en cours, selon le type de service.
+  ({String label, String? name, String? phone}) get _contact => (
+        label: MissionLabels.of(mission).contactLabel,
+        name: MissionLabels.contactNameOf(mission),
+        phone: MissionLabels.contactPhoneOf(mission),
       );
-    }
-    if (mission.isPickedUp) {
-      return (
-        label: 'Destinataire',
-        name: null,
-        phone: mission.telephoneDestinataire,
-      );
-    }
-    return (
-      label: 'Expéditeur',
-      name: mission.customerFullName,
-      phone: mission.telephoneExpediteur ?? mission.customerTelephone,
-    );
-  }
 
   /// 773809954 → 77 380 99 54
   static String formatPhone(String raw) {
@@ -765,9 +739,7 @@ class _MissionPanel extends StatelessWidget {
                         BorderRadius.circular(AppDimens.radiusFull),
                   ),
                   child: Text(
-                    mission.isPickedUp
-                        ? 'Étape 2 sur 2 · Livraison'
-                        : 'Étape 1 sur 2 · Récupération',
+                    MissionLabels.of(mission).stepBadge,
                     style: TextStyle(
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
@@ -790,7 +762,7 @@ class _MissionPanel extends StatelessWidget {
             _InfoBlock(
               icon: LucideIcons.mapPin,
               iconColor: AppColors.secondary,
-              label: mission.isPickedUp ? 'Livrer à' : 'Récupérer à',
+              label: MissionLabels.of(mission).addressLabel,
               value: mission.currentAddress,
               actionLabel: isStartingNavigation ? '...' : 'Y aller',
               actionIcon: LucideIcons.navigation,
@@ -876,7 +848,7 @@ class _MissionPanel extends StatelessWidget {
                     Icon(LucideIcons.packageCheck, size: 18.r),
                     SizedBox(width: 8.w),
                     Text(
-                      stepActionLabel(mission),
+                      MissionLabels.of(mission).actionButton,
                       style: TextStyle(
                         fontFamily: 'Archivo',
                         fontSize: 15.sp,
