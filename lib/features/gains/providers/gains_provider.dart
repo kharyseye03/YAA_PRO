@@ -15,16 +15,6 @@ enum GainsPeriod {
   final String label;
   const GainsPeriod(this.label);
 
-  /// Complément affiché à côté du montant total : « +5 000 FCFA
-  /// aujourd'hui », « … sur 7 jours »…
-  String get totalSuffix => switch (this) {
-        tout => 'au total',
-        aujourdhui => 'aujourd\'hui',
-        septJours => 'sur 7 jours',
-        trenteJours => 'sur 30 jours',
-        personnalisee => 'sur la période',
-      };
-
   /// Bornes envoyées à l'API. `null` = pas de filtre de date.
   DateTimeRange? rangeFrom(DateTimeRange? custom) {
     final now = DateTime.now();

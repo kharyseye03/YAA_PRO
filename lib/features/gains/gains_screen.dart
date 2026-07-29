@@ -211,10 +211,9 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                         SizedBox(width: 5.w),
                         Text(
                           _balanceVisible
-                              ? '+${summary?.totalFormate ?? '0'} '
-                                  '${summary?.devise ?? 'FCFA'} '
-                                  '${filter.period.totalSuffix}'
-                              : '•••••• FCFA ${filter.period.totalSuffix}',
+                              ? '+${summary?.aujourdhuiFormate ?? '0'} '
+                                  '${summary?.devise ?? 'FCFA'} aujourd\'hui'
+                              : '•••••• FCFA aujourd\'hui',
                           style: TextStyle(
                             fontFamily: 'Archivo',
                             fontSize: 12.sp,
