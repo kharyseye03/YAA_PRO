@@ -402,7 +402,14 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                   Expanded(
                     flex: 2,
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _isAccepting
+                          ? null
+                          : () {
+                              if (o.missionId != 0) {
+                                refuseMission(ref, o.missionId);
+                              }
+                              Navigator.of(context).pop();
+                            },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.grey600,
                         side: const BorderSide(color: AppColors.grey300),

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:remixicon/remixicon.dart';
 import '../../core/constants/constants.dart';
+import '../delivery/delivery_screen.dart';
+import '../delivery/providers/active_mission_provider.dart';
 import '../home/home_screen.dart';
 import '../orders/orders_screen.dart';
 import '../orders/providers/orders_provider.dart';
@@ -29,9 +31,14 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Mission en cours : l'app bascule entièrement dessus
+    if (ref.watch(activeMissionIdProvider) != null) {
+      return const DeliveryScreen();
+    }
+
     final currentIndex = ref.watch(shellIndexProvider);
     final ordersCount =
-        ref.watch(availableOrdersProvider).valueOrNull?.length ?? 0;
+        ref.watch(dashboardOrdersProvider).valueOrNull?.length ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.white,

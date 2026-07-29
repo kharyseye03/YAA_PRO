@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Textes des widgets Material en français (sélecteur de dates…)
+  flutter_localizations:
+    sdk: flutter
 
   # ── State Management ────────────────────────────────────
   flutter_riverpod: ^2.6.1
@@ -27,7 +30,10 @@ dependencies:
 
   # ── Location & Maps ─────────────────────────────────────
   geolocator: ^13.0.2
-  google_maps_flutter: ^2.9.0
+  # Cartes + turn-by-turn natif Google (SKU « Navigation Request »).
+  # Fournit aussi GoogleMapsMapView : google_maps_flutter n'est plus
+  # nécessaire, et ne peut de toute façon pas cohabiter avec ce SDK.
+  google_navigation_flutter: ^0.10.0
 
   # ── Data & Serialization ────────────────────────────────
   freezed_annotation: ^2.4.4
@@ -45,7 +51,8 @@ dependencies:
   phosphor_flutter: ^2.1.0
 
   # ── Utils ───────────────────────────────────────────────
-  intl: ^0.19.0
+  # Version imposée par flutter_localizations
+  intl: ^0.20.2
   url_launcher: ^6.3.1
 
   # ── Icons ───────────────────────────────────────────────

@@ -7,6 +7,7 @@ import '../../core/utils/app_router.dart';
 import '../../config/api/api_config.dart';
 import '../auth/providers/auth_notifier.dart';
 import '../auth/providers/driver_provider.dart';
+import '../orders/providers/refused_missions_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -19,6 +20,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _notificationsEnabled = true;
 
   Future<void> _logout() async {
+    // Les missions refusées sont propres à un livreur
+    await ref.read(refusedMissionsProvider.notifier).clear();
     await ref.read(authProvider.notifier).logout();
     if (mounted) context.goNamed(RouteNames.login);
   }

@@ -1,3 +1,6 @@
+import 'mission_statut.dart';
+import 'type_service.dart';
+
 /// Mission disponible pour un coursier (livraison ou course).
 class Mission {
   final int id;
@@ -19,6 +22,14 @@ class Mission {
   final String instructions;
   final DateTime? dateCreationMission;
 
+  // ── Champs présents uniquement sur le détail d'une mission ──
+  final String? customerFullName;
+  final String? customerTelephone;
+  /// LIVRAISON uniquement : contact au point de départ.
+  final String? telephoneExpediteur;
+  /// LIVRAISON uniquement : contact au point d'arrivée.
+  final String? telephoneDestinataire;
+
   const Mission({
     required this.id,
     required this.code,
@@ -38,7 +49,32 @@ class Mission {
     required this.devise,
     required this.instructions,
     this.dateCreationMission,
+    this.customerFullName,
+    this.customerTelephone,
+    this.telephoneExpediteur,
+    this.telephoneDestinataire,
   });
+
+  TypeService get typeServiceEnum => TypeService.from(typeService);
+  MissionStatut get statutEnum => MissionStatut.from(statut);
+
+  /// Transport d'un objet (par opposition au transport d'une personne).
+  bool get isLivraison => !typeServiceEnum.transportePersonne;
+
+  /// True une fois le colis récupéré : le livreur roule alors vers
+  /// le point de livraison (étape 2).
+  bool get isPickedUp => statutEnum.isPickedUp;
+
+  /// La mission est livrée ou annulée : il n'y a plus rien à faire.
+  bool get isFinished => statutEnum.isFinished;
+
+  /// Adresse de l'étape en cours.
+  String get currentAddress => isPickedUp ? adresseArrivee : adresseDepart;
+
+  /// Coordonnées de l'étape en cours.
+  double? get currentLatitude => isPickedUp ? latitudeArrivee : latitudeDepart;
+  double? get currentLongitude =>
+      isPickedUp ? longitudeArrivee : longitudeDepart;
 
   /// Montant formaté avec séparateur de milliers : 2000.0 → « 2 000 »
   String get montantFormate {
@@ -55,11 +91,8 @@ class Mission {
 
   String get dureeLabel => '$dureeMinutes min';
 
-  /// Libellé du type de service : « Livraison » / « Course »
-  String get typeLabel => typeService.isEmpty
-      ? ''
-      : typeService[0].toUpperCase() +
-          typeService.substring(1).toLowerCase();
+  /// Libellé du type de service : « Livraison », « Course », « Commande »
+  String get typeLabel => typeServiceEnum.label;
 
   /// Ancienneté de la mission : « à l'instant », « 5 min », « 2 h »
   String get ancienneteLabel {
@@ -93,6 +126,10 @@ class Mission {
       dateCreationMission: json['dateCreationMission'] != null
           ? DateTime.tryParse(json['dateCreationMission'] as String)
           : null,
+      customerFullName: json['customerFullName'] as String?,
+      customerTelephone: json['customerTelephone'] as String?,
+      telephoneExpediteur: json['telephoneExpediteur'] as String?,
+      telephoneDestinataire: json['telephoneDestinataire'] as String?,
     );
   }
 }
