@@ -231,7 +231,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                         onPressed: () {},
                         icon: Icon(LucideIcons.wallet, size: 16.r),
                         label: Text(
-                          'Charger mes gains',
+                          'Charger',
                           style: TextStyle(
                             fontFamily: 'Archivo',
                             fontSize: 14.sp,

@@ -7,6 +7,7 @@ import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/map_marker.dart';
 import '../../model/order/mission.dart';
 import '../../model/order/mission_labels.dart';
 import '../../model/order/nav_route.dart';
@@ -39,8 +40,18 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   /// l'étape en avant.
   bool _arrived = false;
 
+  /// On quitte l'écran : plus aucune vue carte n'est construite.
+  ///
+  /// Le plugin plante (« GoogleMap not initialized yet ») si une vue
+  /// carte est détruite avant d'avoir fini de s'initialiser, ce qui
+  /// arrive quand on arrête le guidage juste avant de sortir.
+  bool _closing = false;
+
   final _navService = NavigationService();
   StreamSubscription<OnArrivalEvent>? _arrivalSub;
+
+  /// Marqueurs personnalisés, préparés une seule fois.
+  Future<({ImageDescriptor depart, ImageDescriptor arrivee})>? _markerIcons;
 
   @override
   void initState() {
@@ -49,6 +60,16 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     _arrivalSub = GoogleMapsNavigator.setOnArrivalListener((_) {
       if (mounted) setState(() => _arrived = true);
     });
+    _markerIcons = _loadMarkerIcons();
+  }
+
+  Future<({ImageDescriptor depart, ImageDescriptor arrivee})>
+      _loadMarkerIcons() async {
+    final depart = await createMarkerImage(
+        AppColors.dark, Icons.location_on_outlined);
+    final arrivee = await createMarkerImage(
+        AppColors.secondary, Icons.location_on_outlined);
+    return (depart: depart, arrivee: arrivee);
   }
 
   @override
@@ -73,15 +94,20 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     _decorated = true;
 
     try {
+      final icons = await _markerIcons;
       await controller.addMarkers([
         if (pickup != null)
           MarkerOptions(
             position: pickup,
+            icon: icons?.depart ?? ImageDescriptor.defaultImage,
+            anchor: const MarkerAnchor(u: 0.5, v: 1),
             infoWindow: const InfoWindow(title: 'Récupération'),
           ),
         if (dropoff != null)
           MarkerOptions(
             position: dropoff,
+            icon: icons?.arrivee ?? ImageDescriptor.defaultImage,
+            anchor: const MarkerAnchor(u: 0.5, v: 1),
             infoWindow: const InfoWindow(title: 'Livraison'),
           ),
       ]);
@@ -91,15 +117,17 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         if (routes.preview.isNotEmpty)
           PolylineOptions(
             points: routes.preview,
-            strokeColor: AppColors.grey500,
+            strokeColor: AppColors.grey400,
             strokeWidth: 5,
+            strokeJointType: StrokeJointType.round,
           ),
         // Étape en cours : ma position → destination du moment
         if (routes.active.polyline.isNotEmpty)
           PolylineOptions(
             points: routes.active.polyline,
-            strokeColor: AppColors.primary,
-            strokeWidth: 8,
+            strokeColor: AppColors.dark,
+            strokeWidth: 6,
+            strokeJointType: StrokeJointType.round,
           ),
       ]);
 
@@ -192,8 +220,12 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     setState(() => _confirmingStep = true);
     try {
       await ref.read(apiServiceProvider).pickupMission(missionId);
-      if (_navigating) await _stopNavigation();
-      // Le nouveau statut fait basculer l'écran sur l'étape 2
+      // Le nouveau statut fait basculer l'écran sur l'étape 2 :
+      // le guidage repartira vers le point de livraison
+      if (_navigating) {
+        await _navService.stopGuidance();
+        if (mounted) setState(() => _navigating = false);
+      }
       _decorated = false;
       _framed = false;
       _arrived = false;
@@ -215,8 +247,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     setState(() => _confirmingStep = true);
     try {
       await ref.read(apiServiceProvider).deliverMission(mission.id);
-      if (_navigating) await _stopNavigation();
-      await _finishMission();
+      await _leaveScreen();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -234,6 +265,17 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     } finally {
       if (mounted) setState(() => _confirmingStep = false);
     }
+  }
+
+  /// Quitte proprement l'écran : la carte est d'abord retirée de
+  /// l'arbre, puis le guidage arrêté, puis la mission libérée.
+  Future<void> _leaveScreen() async {
+    if (mounted) setState(() => _closing = true);
+    if (_navigating) {
+      await _navService.stopGuidance();
+      _navigating = false;
+    }
+    await _finishMission();
   }
 
   /// Libère la mission en cours : l'app revient au tableau de bord et
@@ -267,13 +309,20 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         ],
       ),
     );
-    if (confirmed == true) {
-      await ref.read(activeMissionIdProvider.notifier).finish();
-    }
+    if (confirmed == true) await _leaveScreen();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Sortie en cours : aucune vue carte tant que l'écran vit encore
+    if (_closing) {
+      return const Scaffold(
+        backgroundColor: AppColors.scaffold,
+        body: Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
     final missionAsync = ref.watch(activeMissionProvider);
     final routes = ref.watch(activeRouteProvider).valueOrNull ??
         (active: NavRoute.empty, preview: <LatLng>[]);
@@ -299,7 +348,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           // tableau de bord sans laisser le livreur bloqué ici.
           if (mission.isFinished) {
             WidgetsBinding.instance
-                .addPostFrameCallback((_) => _finishMission());
+                .addPostFrameCallback((_) => _leaveScreen());
             return const Center(
                 child: CircularProgressIndicator(color: AppColors.primary));
           }
@@ -458,11 +507,17 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                 ),
               ),
 
-              // ── Panneau bas ──────────────────────────────────
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: _MissionPanel(
+              // ── Panneau bas glissable ────────────────────────
+              DraggableScrollableSheet(
+                initialChildSize: 0.38,
+                minChildSize: 0.30,
+                maxChildSize: 0.85,
+                snap: true,
+                snapSizes: const [0.30, 0.85],
+                builder: (context, scrollController) => _MissionPanel(
                   mission: mission,
+                  route: routes.active,
+                  scrollController: scrollController,
                   isStartingNavigation: _startingNavigation,
                   busy: _confirmingStep,
                   onNavigate: destination == null
@@ -667,6 +722,8 @@ class _TopBar extends StatelessWidget {
 // ── Panneau d'information et d'action (hors guidage) ──────────────
 class _MissionPanel extends StatelessWidget {
   final Mission mission;
+  final NavRoute route;
+  final ScrollController scrollController;
   final bool isStartingNavigation;
   final VoidCallback? onNavigate;
   final VoidCallback? onExternalMaps;
@@ -676,6 +733,8 @@ class _MissionPanel extends StatelessWidget {
 
   const _MissionPanel({
     required this.mission,
+    required this.route,
+    required this.scrollController,
     required this.isStartingNavigation,
     required this.busy,
     required this.onNavigate,
@@ -705,12 +764,6 @@ class _MissionPanel extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        AppDimens.lg.w,
-        AppDimens.lg.h,
-        AppDimens.lg.w,
-        MediaQuery.of(context).padding.bottom + AppDimens.lg.h,
-      ),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -722,11 +775,26 @@ class _MissionPanel extends StatelessWidget {
           ),
         ],
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        children: [
+          // Poignée de glissement
+          Container(
+            width: 38.w,
+            height: 4.h,
+            margin: EdgeInsets.symmetric(vertical: 10.h),
+            decoration: BoxDecoration(
+              color: AppColors.grey300,
+              borderRadius: BorderRadius.circular(2.r),
+            ),
+          ),
+
+          // Contenu défilant : tirer la feuille pour tout voir
+          Expanded(
+            child: ListView(
+              controller: scrollController,
+              padding: EdgeInsets.fromLTRB(
+                  AppDimens.lg.w, 0, AppDimens.lg.w, AppDimens.md.h),
+              children: [
             // Étape + montant
             Row(
               children: [
@@ -768,6 +836,24 @@ class _MissionPanel extends StatelessWidget {
               actionIcon: LucideIcons.navigation,
               onAction: isStartingNavigation ? null : onNavigate,
             ),
+
+            // Temps et distance jusqu'à la destination de l'étape
+            if (!route.isEmpty)
+              Padding(
+                padding: EdgeInsets.only(left: 50.w, top: 6.h),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.clock,
+                        size: 13.r, color: AppColors.primary),
+                    SizedBox(width: 5.w),
+                    Text(
+                      '${route.durationLabel} · ${route.distanceLabel}',
+                      style: AppTextStyles.labelSmall
+                          .copyWith(color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
 
             // Repli vers Google Maps pour le guidage vocal
             if (onExternalMaps != null)
@@ -828,10 +914,19 @@ class _MissionPanel extends StatelessWidget {
               ),
             ],
 
-            SizedBox(height: AppDimens.lg.h),
+              ],
+            ),
+          ),
 
-            // Action principale
-            SizedBox(
+          // ── Action principale, toujours visible ────────────
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppDimens.lg.w,
+              0,
+              AppDimens.lg.w,
+              MediaQuery.of(context).padding.bottom + AppDimens.md.h,
+            ),
+            child: SizedBox(
               width: double.infinity,
               height: AppDimens.buttonHeight.h,
               child: ElevatedButton(
@@ -842,25 +937,32 @@ class _MissionPanel extends StatelessWidget {
                         BorderRadius.circular(AppDimens.radiusMd),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(LucideIcons.packageCheck, size: 18.r),
-                    SizedBox(width: 8.w),
-                    Text(
-                      MissionLabels.of(mission).actionButton,
-                      style: TextStyle(
-                        fontFamily: 'Archivo',
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w700,
+                child: busy
+                    ? SizedBox(
+                        height: 20.r,
+                        width: 20.r,
+                        child: const CircularProgressIndicator(
+                            strokeWidth: 2.5, color: AppColors.white),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.packageCheck, size: 18.r),
+                          SizedBox(width: 8.w),
+                          Text(
+                            MissionLabels.of(mission).actionButton,
+                            style: TextStyle(
+                              fontFamily: 'Archivo',
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
