@@ -8,6 +8,7 @@ import '../../features/auth/reset_password_screen.dart';
 import '../../features/auth/verification_screen.dart';
 import '../../features/shell/main_shell.dart';
 import '../../features/delivery/delivery_screen.dart';
+import '../../features/history/history_screen.dart';
 import '../../features/orders/order_detail_screen.dart';
 import '../../features/profile/personal_info_screen.dart';
 import '../../features/profile/edit_personal_info_screen.dart';
@@ -141,6 +142,12 @@ final appRouter = GoRouter(
       builder: (context, state) => OrderDetailScreen(
         order: state.extra as OrderDetailArgs?,
       ),
+    ),
+
+    GoRoute(
+      path: RoutePaths.history,
+      name: RouteNames.history,
+      builder: (context, state) => const HistoryScreen(),
     ),
 
     // ── Profil ─────────────────────────────────────────────

@@ -75,6 +75,24 @@ class HistoryScreen extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 38.r,
+                        height: 38.r,
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Icon(
+                          Icons.chevron_left_rounded,
+                          color: AppColors.dark,
+                          size: 22.r,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

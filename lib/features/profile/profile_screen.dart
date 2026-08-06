@@ -165,6 +165,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               subtitle: '47 livraisons · 312 km',
               onTap: () {},
             ),
+            const _RowDivider(),
+            _Row(
+              icon: Icons.history_rounded,
+              label: 'Historique',
+              subtitle: 'Vos commandes terminées',
+              onTap: () => context.pushNamed(RouteNames.history),
+            ),
 
             SizedBox(height: 8.h),
             Divider(height: 1, color: AppColors.grey200),

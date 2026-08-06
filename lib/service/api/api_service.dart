@@ -12,6 +12,76 @@ import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
 
 class ApiService {
+  // ── Session ───────────────────────────────────────────────
+
+  /// Renouvellement en cours, partagé par tous les appels : si
+  /// plusieurs requêtes expirent en même temps, une seule demande
+  /// un nouveau token et les autres attendent son résultat.
+  Future<String>? _refreshing;
+
+  /// Access token valide, renouvelé si nécessaire.
+  /// `null` si la session ne peut plus être prolongée.
+  Future<String?> _validToken() async {
+    if (await TokenStorage.instance.hasValidToken()) {
+      return TokenStorage.instance.getAccessToken();
+    }
+    return _renewToken();
+  }
+
+  Future<String?> _renewToken() async {
+    _refreshing ??=
+        _performRefresh().whenComplete(() => _refreshing = null);
+    try {
+      return await _refreshing;
+    } catch (e) {
+      debugPrint('🔒 Refresh impossible → $e');
+      return null;
+    }
+  }
+
+  Future<String> _performRefresh() async {
+    final refresh = await TokenStorage.instance.getRefreshToken();
+    if (refresh == null) throw Exception('Aucun refresh token.');
+    debugPrint('🔄 Renouvellement du token…');
+    final auth = await refreshToken(refreshToken: refresh);
+    await TokenStorage.instance.saveTokens(auth);
+    debugPrint('🔄 Token renouvelé');
+    return auth.accessToken;
+  }
+
+  /// Exécute une requête authentifiée.
+  ///
+  /// Le token est renouvelé en amont s'il a expiré, et la requête est
+  /// rejouée une fois si le serveur répond quand même 401 (token
+  /// révoqué côté Keycloak, horloge décalée…).
+  Future<http.Response> _authed(
+    Future<http.Response> Function(String token) send,
+  ) async {
+    var token = await _validToken();
+    if (token == null) throw _sessionExpired();
+
+    var response = await send(token);
+    if (response.statusCode != 401) return response;
+
+    debugPrint('🔒 401 reçu → nouvelle tentative après renouvellement');
+    token = await _renewToken();
+    if (token == null) throw _sessionExpired();
+
+    response = await send(token);
+    if (response.statusCode == 401) throw _sessionExpired();
+    return response;
+  }
+
+  /// La session ne peut plus être prolongée.
+  ///
+  /// On n'efface surtout pas le stockage ici : cette méthode peut être
+  /// appelée par une requête restée en vol pendant que l'utilisateur
+  /// se reconnecte, et elle effacerait les tokens tout juste
+  /// enregistrés. Le nettoyage est fait à la déconnexion et au
+  /// démarrage (tryAutoLogin).
+  Exception _sessionExpired() =>
+      Exception('Session expirée. Reconnectez-vous.');
+
   // ── Auth ──────────────────────────────────────────────────
 
   Future<AuthResponse> login({
@@ -24,7 +94,7 @@ class ApiService {
         headers: ApiConfig.formHeaders,
         body: {
           'grant_type': 'password',
-          'client_id': 'yaa',
+          'client_id': ApiConfig.keycloakClientId,
           'username': username,
           'password': password,
         },
@@ -51,7 +121,7 @@ class ApiService {
         headers: ApiConfig.formHeaders,
         body: {
           'grant_type': 'refresh_token',
-          'client_id': 'yaa',
+          'client_id': ApiConfig.keycloakClientId,
           'refresh_token': refreshToken,
         },
       );
@@ -262,15 +332,11 @@ class ApiService {
     final url = uri.toString();
 
     try {
-      final token = await TokenStorage.instance.getAccessToken();
       debugPrint('🌐 GET $url');
-      debugPrint('🔑 Token : ${token == null ? "AUCUN" : "présent (${token.length} car.)"}');
-      if (token == null) throw Exception('Non connecté.');
-
-      final response = await http.get(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _authed((token) => http.get(
+            uri,
+            headers: {'Authorization': 'Bearer $token'},
+          ));
 
       debugPrint('📡 Status → ${response.statusCode}');
       debugPrint('📬 Body → ${response.body}');
@@ -307,9 +373,6 @@ class ApiService {
         debugPrint('✅ ${missions.length} mission(s) parsée(s)');
         return missions;
       }
-      if (response.statusCode == 401) {
-        throw Exception('Session expirée. Reconnectez-vous.');
-      }
       throw Exception(
           'Impossible de charger les commandes (${response.statusCode}).');
     } on http.ClientException catch (e) {
@@ -327,14 +390,11 @@ class ApiService {
   Future<Mission> getMissionDetail(int missionId) async {
     final url = ApiConfig.getUrl(ApiConfig.missionDetailEndpoint(missionId));
     try {
-      final token = await TokenStorage.instance.getAccessToken();
-      if (token == null) throw Exception('Non connecté.');
-
       debugPrint('🌐 GET $url');
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _authed((token) => http.get(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          ));
       debugPrint('📡 Status → ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -342,9 +402,6 @@ class ApiService {
         final data = body['data'];
         if (data is Map<String, dynamic>) return Mission.fromJson(data);
         throw Exception('Mission introuvable.');
-      }
-      if (response.statusCode == 401) {
-        throw Exception('Session expirée. Reconnectez-vous.');
       }
       throw Exception(_errorMessage(
           response, 'Impossible de charger la mission (${response.statusCode}).'));
@@ -412,17 +469,14 @@ class ApiService {
   Future<Mission> _patchMission(String endpoint, String errorLabel) async {
     final url = ApiConfig.getUrl(endpoint);
     try {
-      final token = await TokenStorage.instance.getAccessToken();
-      if (token == null) throw Exception('Non connecté.');
-
       debugPrint('🌐 PATCH $url');
-      final response = await http.patch(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+      final response = await _authed((token) => http.patch(
+            Uri.parse(url),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+          ));
 
       debugPrint('📡 Status → ${response.statusCode}');
       debugPrint('📬 Body → ${response.body}');
@@ -432,9 +486,6 @@ class ApiService {
         final data = body['data'];
         if (data is Map<String, dynamic>) return Mission.fromJson(data);
         throw Exception('Réponse inattendue du serveur.');
-      }
-      if (response.statusCode == 401) {
-        throw Exception('Session expirée. Reconnectez-vous.');
       }
       throw Exception(
           _errorMessage(response, '$errorLabel (${response.statusCode}).'));
@@ -464,14 +515,11 @@ class ApiService {
         .replace(queryParameters: params.isEmpty ? null : params)
         .toString();
     try {
-      final token = await TokenStorage.instance.getAccessToken();
-      if (token == null) throw Exception('Non connecté.');
-
       debugPrint('🌐 GET $url');
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await _authed((token) => http.get(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          ));
       debugPrint('📡 Status → ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -479,9 +527,6 @@ class ApiService {
         final data = body['data'];
         if (data is Map<String, dynamic>) return GainsSummary.fromJson(data);
         return GainsSummary.empty;
-      }
-      if (response.statusCode == 401) {
-        throw Exception('Session expirée. Reconnectez-vous.');
       }
       throw Exception(_errorMessage(
           response, 'Impossible de charger vos gains (${response.statusCode}).'));

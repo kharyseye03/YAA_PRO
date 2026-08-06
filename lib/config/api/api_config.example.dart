@@ -8,6 +8,9 @@ class ApiConfig {
   static const String loginEndpoint =
       '/realms/yaa-delivery/protocol/openid-connect/token';
 
+  /// Client Keycloak de l'app mobile (login et refresh).
+  static const String keycloakClientId = 'yaa-mobile';
+
   // ── API Base ──────────────────────────────────────────────
   static const String baseUrl = 'http://VOTRE_IP:PORT/api/v1';
 
