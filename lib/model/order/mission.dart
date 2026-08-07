@@ -10,12 +10,17 @@ class MissionStructure {
   final String adresse;
   final String? logoFile;
 
+  /// Nature du commerce telle que renvoyée par l'API : « Supermarché »,
+  /// « Restaurant », « Pharmacie »… Sert de libellé à l'étape 1.
+  final String? structureType;
+
   const MissionStructure({
     required this.id,
     required this.nom,
     required this.telephone,
     required this.adresse,
     this.logoFile,
+    this.structureType,
   });
 
   factory MissionStructure.fromJson(Map<String, dynamic> json) {
@@ -25,6 +30,7 @@ class MissionStructure {
       telephone: json['telephone'] as String? ?? '',
       adresse: json['adresse'] as String? ?? '',
       logoFile: json['logoFile'] as String?,
+      structureType: json['structureType'] as String?,
     );
   }
 }

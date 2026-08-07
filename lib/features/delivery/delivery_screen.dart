@@ -508,17 +508,14 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                 ),
               ),
 
-              // ── Panneau bas glissable ────────────────────────
-              DraggableScrollableSheet(
-                initialChildSize: 0.38,
-                minChildSize: 0.30,
-                maxChildSize: 0.85,
-                snap: true,
-                snapSizes: const [0.30, 0.85],
-                builder: (context, scrollController) => _MissionPanel(
+              // ── Panneau bas fixe ─────────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _MissionPanel(
                   mission: mission,
                   route: routes.active,
-                  scrollController: scrollController,
                   isStartingNavigation: _startingNavigation,
                   busy: _confirmingStep,
                   onNavigate: destination == null
@@ -697,7 +694,6 @@ class _TopBar extends StatelessWidget {
 class _MissionPanel extends StatelessWidget {
   final Mission mission;
   final NavRoute route;
-  final ScrollController scrollController;
   final bool isStartingNavigation;
   final VoidCallback? onNavigate;
   final VoidCallback? onExternalMaps;
@@ -708,7 +704,6 @@ class _MissionPanel extends StatelessWidget {
   const _MissionPanel({
     required this.mission,
     required this.route,
-    required this.scrollController,
     required this.isStartingNavigation,
     required this.busy,
     required this.onNavigate,
@@ -741,6 +736,12 @@ class _MissionPanel extends StatelessWidget {
 
     return Container(
       width: double.infinity,
+      // Le panneau ne se déplie plus : sa hauteur suit son contenu.
+      // Le plafond n'est là que pour les missions très bavardes
+      // (instructions longues), où le contenu défile sur place.
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.62,
+      ),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -753,25 +754,16 @@ class _MissionPanel extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Poignée de glissement
-          Container(
-            width: 38.w,
-            height: 4.h,
-            margin: EdgeInsets.symmetric(vertical: 10.h),
-            decoration: BoxDecoration(
-              color: AppColors.grey300,
-              borderRadius: BorderRadius.circular(2.r),
-            ),
-          ),
-
-          // Contenu défilant : tirer la feuille pour tout voir
-          Expanded(
-            child: ListView(
-              controller: scrollController,
-              padding: EdgeInsets.fromLTRB(
-                  AppDimens.lg.w, 0, AppDimens.lg.w, AppDimens.md.h),
-              children: [
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(AppDimens.lg.w, AppDimens.lg.h,
+                  AppDimens.lg.w, AppDimens.md.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
             // Progression : deux segments, colorés selon l'étape
             _StepProgress(isPickedUp: mission.isPickedUp, accent: accent),
             SizedBox(height: AppDimens.md.h),
@@ -899,7 +891,8 @@ class _MissionPanel extends StatelessWidget {
               ),
             ],
 
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -1102,13 +1095,18 @@ class _InfoBlock extends StatelessWidget {
           ),
         ),
         SizedBox(width: AppDimens.sm.w),
-        OutlinedButton(
+        // Lancer le guidage est l'action la plus fréquente de l'écran :
+        // bouton plein, à la couleur de l'étape, pour qu'il saute aux yeux
+        ElevatedButton(
           onPressed: onAction,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.dark,
-            side: const BorderSide(color: AppColors.grey300),
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            minimumSize: Size(0, 38.h),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: iconColor,
+            foregroundColor: AppColors.white,
+            disabledBackgroundColor: iconColor.withValues(alpha: 0.45),
+            disabledForegroundColor: AppColors.white,
+            elevation: 0,
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            minimumSize: Size(0, 44.h),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppDimens.radiusMd),
             ),
@@ -1116,15 +1114,15 @@ class _InfoBlock extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(actionIcon, size: 14.r, color: AppColors.dark),
-              SizedBox(width: 5.w),
+              Icon(actionIcon, size: 16.r, color: AppColors.white),
+              SizedBox(width: 6.w),
               Text(
                 actionLabel,
                 style: TextStyle(
                   fontFamily: 'Archivo',
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.dark,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.white,
                 ),
               ),
             ],
