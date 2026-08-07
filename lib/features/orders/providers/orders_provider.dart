@@ -73,6 +73,13 @@ int _byDateDesc(Mission a, Mission b) {
   return b.dateCreationMission!.compareTo(a.dateCreationMission!);
 }
 
+/// Détail complet d'une mission : contacts, commerçant, instructions.
+/// Ces champs n'existent pas dans la liste, il faut les charger à part.
+final missionDetailProvider =
+    FutureProvider.family<Mission, int>((ref, missionId) async {
+  return ref.read(apiServiceProvider).getMissionDetail(missionId);
+});
+
 /// Filtre actuellement sélectionné sur l'écran Commandes.
 final orderFilterProvider =
     StateProvider<OrderFilter>((ref) => OrderFilter.toutes);

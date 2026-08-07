@@ -12,6 +12,7 @@ import '../../features/history/history_screen.dart';
 import '../../features/orders/order_detail_screen.dart';
 import '../../features/profile/personal_info_screen.dart';
 import '../../features/profile/edit_personal_info_screen.dart';
+import '../../features/profile/vehicle_screen.dart';
 import '../../features/starter/onboarding/onboarding_screen.dart';
 import '../../features/starter/splash/splash_screen.dart';
 
@@ -32,6 +33,7 @@ abstract final class RoutePaths {
   static const String profile = '/profile';
   static const String personalInfo = '/personal-info';
   static const String editPersonalInfo = '/edit-personal-info';
+  static const String vehicle = '/vehicle';
 }
 
 abstract final class RouteNames {
@@ -51,6 +53,7 @@ abstract final class RouteNames {
   static const String profile = 'profile';
   static const String personalInfo = 'personalInfo';
   static const String editPersonalInfo = 'editPersonalInfo';
+  static const String vehicle = 'vehicle';
 }
 
 final appRouter = GoRouter(
@@ -160,6 +163,11 @@ final appRouter = GoRouter(
       path: RoutePaths.editPersonalInfo,
       name: RouteNames.editPersonalInfo,
       builder: (context, state) => const EditPersonalInfoScreen(),
+    ),
+    GoRoute(
+      path: RoutePaths.vehicle,
+      name: RouteNames.vehicle,
+      builder: (context, state) => const VehicleScreen(),
     ),
   ],
   errorBuilder: (context, state) => Scaffold(

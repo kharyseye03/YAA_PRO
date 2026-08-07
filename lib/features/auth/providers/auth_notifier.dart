@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/utils/jwt.dart';
 import '../../../service/api/api_service.dart';
 import '../../../service/storage/token_storage.dart';
 import 'auth_state.dart';
@@ -19,6 +21,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final auth = await _api.login(username: username, password: password);
+
+      // Seul un compte livreur a accès à cette application
+      if (!estLivreur(auth.accessToken)) {
+        debugPrint('🚫 Connexion refusée — rôles : '
+            '${realmRolesOf(auth.accessToken)}');
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Ce compte n\'est pas un compte livreur. '
+              'Utilisez l\'application YAA pour commander une livraison.',
+        );
+        return false;
+      }
+
       await TokenStorage.instance.saveTokens(auth);
       await TokenStorage.instance.savePhone(username);
       state = state.copyWith(isLoading: false, isAuthenticated: true);
@@ -34,12 +49,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> tryAutoLogin() async {
     try {
       if (await TokenStorage.instance.hasValidToken()) {
+        final token = await TokenStorage.instance.getAccessToken();
+        if (token == null || !estLivreur(token)) {
+          await TokenStorage.instance.clear();
+          return false;
+        }
         state = state.copyWith(isAuthenticated: true);
         return true;
       }
+
       final refresh = await TokenStorage.instance.getRefreshToken();
       if (refresh == null) return false;
       final auth = await _api.refreshToken(refreshToken: refresh);
+
+      // Le rôle a pu être retiré depuis la dernière connexion
+      if (!estLivreur(auth.accessToken)) {
+        await TokenStorage.instance.clear();
+        return false;
+      }
+
       await TokenStorage.instance.saveTokens(auth);
       state = state.copyWith(isAuthenticated: true);
       return true;

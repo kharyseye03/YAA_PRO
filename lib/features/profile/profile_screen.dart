@@ -118,24 +118,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                   SizedBox(height: 10.h),
 
-                  // Note
+                  // Note : masquée tant que le livreur n'a pas été noté
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.star_rounded,
-                          color: const Color(0xFFF4C430), size: 16.r),
+                          color: driver?.estNote == true
+                              ? const Color(0xFFF4C430)
+                              : AppColors.grey300,
+                          size: 16.r),
                       SizedBox(width: 4.w),
-                      Text(
-                        '4.8',
-                        style: AppTextStyles.labelSmall
-                            .copyWith(color: AppColors.dark),
-                      ),
-                      SizedBox(width: 4.w),
-                      Text(
-                        '(47 avis)',
-                        style: AppTextStyles.caption
-                            .copyWith(color: AppColors.grey400),
-                      ),
+                      if (driver?.estNote == true) ...[
+                        Text(
+                          driver!.notation!.toStringAsFixed(1),
+                          style: AppTextStyles.labelSmall
+                              .copyWith(color: AppColors.dark),
+                        ),
+                        SizedBox(width: 4.w),
+                        Text(
+                          '(${driver.nombreNotations} avis)',
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.grey600),
+                        ),
+                      ] else
+                        Text(
+                          'Pas encore noté',
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.grey600),
+                        ),
                     ],
                   ),
                 ],
@@ -155,15 +165,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _Row(
               icon: Icons.two_wheeler_rounded,
               label: 'Mon véhicule',
-              subtitle: 'Honda CB 125 · DK 4421 AB',
-              onTap: () {},
-            ),
-            const _RowDivider(),
-            _Row(
-              icon: Icons.bar_chart_rounded,
-              label: 'Mes statistiques',
-              subtitle: '47 livraisons · 312 km',
-              onTap: () {},
+              subtitle: driver?.vehiculeInfo?.resume ?? 'Non renseigné',
+              onTap: () => context.pushNamed(RouteNames.vehicle),
             ),
             const _RowDivider(),
             _Row(
