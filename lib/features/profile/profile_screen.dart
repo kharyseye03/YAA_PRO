@@ -8,6 +8,7 @@ import '../../config/api/api_config.dart';
 import '../auth/providers/auth_notifier.dart';
 import '../auth/providers/driver_provider.dart';
 import '../orders/providers/refused_missions_provider.dart';
+import '../shell/main_shell.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -22,6 +23,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _logout() async {
     // Les missions refusées sont propres à un livreur
     await ref.read(refusedMissionsProvider.notifier).clear();
+    // Sinon la prochaine connexion rouvre l'app sur cet onglet
+    ref.read(shellIndexProvider.notifier).state = 0;
     await ref.read(authProvider.notifier).logout();
     if (mounted) context.goNamed(RouteNames.login);
   }

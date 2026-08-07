@@ -8,6 +8,7 @@ import '../../config/api/api_config.dart';
 import '../../model/auth/auth_response.dart';
 import '../../model/driver/driver_detail.dart';
 import '../../model/gains/gains_summary.dart';
+import '../../model/order/history_mission.dart';
 import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
 
@@ -489,6 +490,32 @@ class ApiService {
       }
       throw Exception(
           _errorMessage(response, '$errorLabel (${response.statusCode}).'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  /// Historique des missions du livreur, avec le détail des gains.
+  Future<List<HistoryMission>> getAllMissions() async {
+    final url = ApiConfig.getUrl(ApiConfig.allMissionsEndpoint);
+    try {
+      debugPrint('🌐 GET $url');
+      final response = await _authed((token) => http.get(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          ));
+      debugPrint('📡 Status → ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final list = body['data'] as List<dynamic>? ?? [];
+        return list
+            .map((e) => HistoryMission.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      throw Exception(_errorMessage(response,
+          'Impossible de charger l\'historique (${response.statusCode}).'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
