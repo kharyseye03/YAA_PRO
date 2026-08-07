@@ -63,10 +63,36 @@ class HomeScreen extends ConsumerWidget {
                   onTapAll: () =>
                       ref.read(shellIndexProvider.notifier).state = 1,
                 ),
-                if (latestOrder != null) ...[
-                  SizedBox(height: 10.h),
-                  _OrderCard(order: latestOrder),
-                ],
+                // La commande sortante glisse vers la gauche, la
+                // suivante entre par la droite — comme une pile de
+                // cartes qui défile.
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 380),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final sortante =
+                        animation.status == AnimationStatus.reverse;
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: Offset(sortante ? -1 : 1, 0),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: latestOrder == null
+                      ? const SizedBox(
+                          key: ValueKey('aucune'), width: double.infinity)
+                      : Padding(
+                          key: ValueKey(latestOrder.id),
+                          padding: EdgeInsets.only(top: 10.h),
+                          child: _OrderCard(order: latestOrder),
+                        ),
+                ),
               ],
             ),
           ),

@@ -5,6 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
+import '../orders/providers/orders_provider.dart';
+import '../shell/main_shell.dart';
 import 'providers/auth_notifier.dart';
 import 'providers/driver_provider.dart';
 
@@ -111,7 +113,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           password: _passwordCtrl.text,
         );
     if (success && mounted) {
+      // Repartir sur un état propre : le compte a pu changer
+      ref.read(shellIndexProvider.notifier).state = 0;
       ref.invalidate(driverDetailProvider);
+      ref.invalidate(allOrdersProvider);
+      ref.invalidate(availableOrdersProvider);
       context.goNamed(RouteNames.home);
     }
   }

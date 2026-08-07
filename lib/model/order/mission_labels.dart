@@ -62,12 +62,19 @@ class MissionLabels {
               contactLabel: 'Client',
               arrivalMessage: 'Vous êtes arrivé chez le client',
             )
-          : const MissionLabels(
+          : MissionLabels(
               stepBadge: 'Étape 1 sur 2 · Récupération',
               addressLabel: 'Récupérer chez',
               actionButton: 'J\'ai récupéré la commande',
-              contactLabel: 'Commerçant',
-              arrivalMessage: 'Vous êtes arrivé chez le commerçant',
+              // « Supermarché », « Restaurant »… le client n'a rien à
+              // faire ici : l'interlocuteur de l'étape est la structure
+              contactLabel: mission.structure?.structureType?.trim().isNotEmpty
+                      == true
+                  ? mission.structure!.structureType!.trim()
+                  : 'Commerçant',
+              arrivalMessage: mission.structure != null
+                  ? 'Vous êtes arrivé chez ${mission.structure!.nom}'
+                  : 'Vous êtes arrivé chez le commerçant',
             ),
 
       // ── Colis entre particuliers ──────────────────────────
@@ -96,8 +103,12 @@ class MissionLabels {
     if (mission.typeServiceEnum.transportePersonne) {
       return mission.customerTelephone;
     }
-    return mission.isPickedUp
-        ? mission.telephoneDestinataire ?? mission.customerTelephone
+    if (mission.isPickedUp) {
+      return mission.telephoneDestinataire ?? mission.customerTelephone;
+    }
+    // Étape 1 d'une commande : on appelle le commerce, pas le client
+    return mission.structure?.telephone.trim().isNotEmpty == true
+        ? mission.structure!.telephone
         : mission.telephoneExpediteur ?? mission.customerTelephone;
   }
 
@@ -107,6 +118,10 @@ class MissionLabels {
       return mission.customerFullName;
     }
     // Le destinataire n'a pas de nom dans la réponse API
-    return mission.isPickedUp ? null : mission.customerFullName;
+    if (mission.isPickedUp) return null;
+    // Étape 1 d'une commande : le nom de l'enseigne
+    return mission.structure?.nom.trim().isNotEmpty == true
+        ? mission.structure!.nom
+        : mission.customerFullName;
   }
 }

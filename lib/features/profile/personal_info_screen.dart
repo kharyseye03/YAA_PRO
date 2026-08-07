@@ -134,6 +134,45 @@ class PersonalInfoScreen extends ConsumerWidget {
                     value: driver?.email ?? '—',
                   ),
                   Divider(height: 1, color: AppColors.grey200),
+                  _InfoRow(
+                    icon: Icons.home_outlined,
+                    label: 'Adresse',
+                    value: driver?.address?.isNotEmpty == true
+                        ? driver!.address!
+                        : 'Non renseignée',
+                  ),
+                  Divider(height: 1, color: AppColors.grey200),
+
+                  // ── Pièce d'identité ──────────────────────
+                  if (driver?.pieceIdentite != null) ...[
+                    SizedBox(height: 24.h),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Pièce d\'identité',
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: AppColors.dark,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Divider(height: 1, color: AppColors.grey200),
+                    _InfoRow(
+                      icon: Icons.badge_outlined,
+                      label: 'Type',
+                      value: driver!.pieceIdentite!.typeLabel,
+                    ),
+                    Divider(height: 1, color: AppColors.grey200),
+                    _InfoRow(
+                      icon: Icons.numbers_rounded,
+                      label: 'Numéro',
+                      value: driver.pieceIdentite!.numero.isNotEmpty
+                          ? driver.pieceIdentite!.numero
+                          : '—',
+                    ),
+                    Divider(height: 1, color: AppColors.grey200),
+                  ],
                 ],
               ),
             ),

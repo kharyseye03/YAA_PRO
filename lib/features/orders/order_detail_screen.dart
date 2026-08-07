@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../config/api/api_config.dart';
 import '../../core/constants/constants.dart';
 import 'providers/accept_mission.dart';
+import 'providers/orders_provider.dart';
 
 // ── Données de la commande ──────────────────────────────────────
 class OrderDetailArgs {
@@ -103,6 +105,24 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     final timerStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
     final timerUrgent = o.timerSeconds < 60;
     final catColor = _catColors(o.category);
+
+    // Contacts, commerçant et instructions ne figurent que dans le
+    // détail de la mission : on le charge en plus de la liste.
+    final detail = o.missionId == 0
+        ? null
+        : ref.watch(missionDetailProvider(o.missionId)).valueOrNull;
+    final structure = detail?.structure;
+
+    final pickupName = structure?.nom ??
+        (detail?.telephoneExpediteur != null ? 'Expéditeur' : null);
+    final pickupPhone =
+        structure?.telephone ?? detail?.telephoneExpediteur;
+
+    final clientName = detail?.customerFullName;
+    final clientPhone =
+        detail?.telephoneDestinataire ?? detail?.customerTelephone;
+
+    final instructions = detail?.instructions;
 
     return Scaffold(
       backgroundColor: AppColors.scaffold,
@@ -290,37 +310,58 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                       ),
                       SizedBox(height: AppDimens.md.h),
 
-                      // ── Section : Établissement ─────────────
-                      if (o.merchantName != null)
+                      // ── Section : Récupérer chez ────────────
+                      // Le commerçant pour une commande, l'expéditeur
+                      // sinon. L'adresse n'est pas répétée : elle est
+                      // déjà dans l'itinéraire.
+                      if (pickupName != null)
                         _SectionCard(
                           title: 'Récupérer chez',
                           icon: LucideIcons.store,
                           child: _ContactSection(
-                            name: o.merchantName!,
-                            address: o.merchantAddress,
-                            phone: o.merchantPhone,
+                            name: pickupName,
+                            phone: pickupPhone,
+                            logoUrl: structure?.logoFile != null
+                                ? ApiConfig.getImageUrl(
+                                    structure!.logoFile!)
+                                : null,
                             avatarColor: AppColors.primarySurface,
                             avatarIconColor: AppColors.primary,
                             avatarIcon: Icons.storefront_rounded,
                           ),
                         ),
-                      SizedBox(height: AppDimens.md.h),
+                      if (pickupName != null)
+                        SizedBox(height: AppDimens.md.h),
 
-                      // ── Section : Client ────────────────────
-                      if (o.clientName != null)
+                      // ── Section : Livrer à ──────────────────
+                      if (clientName != null)
                         _SectionCard(
                           title: 'Livrer à',
                           icon: LucideIcons.user,
                           child: _ContactSection(
-                            name: o.clientName!,
-                            address: o.delivery,
-                            phone: o.clientPhone,
-                            notes: o.clientNotes,
-                            avatarColor: AppColors.secondaryLight.withValues(alpha: 0.15),
+                            name: clientName,
+                            phone: clientPhone,
+                            avatarColor: AppColors.secondaryLight
+                                .withValues(alpha: 0.15),
                             avatarIconColor: AppColors.secondary,
                             avatarIcon: Icons.person_rounded,
                           ),
                         ),
+
+                      // ── Section : Instructions ──────────────
+                      if (instructions != null &&
+                          instructions.isNotEmpty) ...[
+                        SizedBox(height: AppDimens.md.h),
+                        _SectionCard(
+                          title: 'Instructions',
+                          icon: LucideIcons.clipboardList,
+                          child: Text(
+                            instructions,
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.grey800),
+                          ),
+                        ),
+                      ],
 
                       // Espace pour les boutons fixes
                       SizedBox(height: 100.h),
@@ -546,11 +587,13 @@ class _SectionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 15.r, color: AppColors.grey500),
-                SizedBox(width: 6.w),
+                Icon(icon, size: 16.r, color: AppColors.dark),
+                SizedBox(width: 7.w),
                 Text(title,
-                    style: AppTextStyles.labelSmall
-                        .copyWith(color: AppColors.grey600)),
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.dark,
+                      fontWeight: FontWeight.w700,
+                    )),
               ],
             ),
             SizedBox(height: AppDimens.md.h),
@@ -637,21 +680,21 @@ class _RouteSection extends StatelessWidget {
 // ── Section contact générique (marchand ou client) ───────────────
 class _ContactSection extends StatelessWidget {
   final String name;
-  final String? address;
   final String? phone;
-  final String? notes;
   final Color avatarColor;
   final Color avatarIconColor;
   final IconData avatarIcon;
+
+  /// Logo du commerçant, affiché à la place de l'icône quand il existe.
+  final String? logoUrl;
 
   const _ContactSection({
     required this.name,
     required this.avatarColor,
     required this.avatarIconColor,
     required this.avatarIcon,
-    this.address,
     this.phone,
-    this.notes,
+    this.logoUrl,
   });
 
   @override
@@ -668,24 +711,20 @@ class _ContactSection extends StatelessWidget {
               decoration: BoxDecoration(
                 color: avatarColor,
                 shape: BoxShape.circle,
+                image: logoUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(logoUrl!), fit: BoxFit.cover)
+                    : null,
               ),
-              child: Icon(avatarIcon, color: avatarIconColor, size: 22.r),
+              child: logoUrl != null
+                  ? null
+                  : Icon(avatarIcon, color: avatarIconColor, size: 22.r),
             ),
             SizedBox(width: AppDimens.md.w),
-            // Nom + adresse
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name,
-                      style: AppTextStyles.labelMedium
-                          .copyWith(color: AppColors.dark)),
-                  if (address != null)
-                    Text(address!,
-                        style: AppTextStyles.caption
-                            .copyWith(color: AppColors.grey500)),
-                ],
-              ),
+              child: Text(name,
+                  style: AppTextStyles.labelMedium
+                      .copyWith(color: AppColors.dark)),
             ),
             // Bouton appel
             if (phone != null)
@@ -710,29 +749,8 @@ class _ContactSection extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(left: 42.r + AppDimens.md.w),
             child: Text(phone!,
-                style: AppTextStyles.caption
-                    .copyWith(color: AppColors.grey500)),
-          ),
-        ],
-        // Notes / instructions
-        if (notes != null) ...[
-          SizedBox(height: AppDimens.md.h),
-          Divider(height: 1, color: AppColors.grey100),
-          SizedBox(height: AppDimens.md.h),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(LucideIcons.messageSquare,
-                  size: 14.r, color: AppColors.grey400),
-              SizedBox(width: 6.w),
-              Expanded(
-                child: Text(
-                  notes!,
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.grey600),
-                ),
-              ),
-            ],
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.grey700)),
           ),
         ],
       ],

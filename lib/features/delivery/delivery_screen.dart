@@ -8,6 +8,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/map_marker.dart';
+import '../../core/widgets/slide_to_confirm.dart';
 import '../../model/order/mission.dart';
 import '../../model/order/mission_labels.dart';
 import '../../model/order/nav_route.dart';
@@ -507,17 +508,14 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                 ),
               ),
 
-              // ── Panneau bas glissable ────────────────────────
-              DraggableScrollableSheet(
-                initialChildSize: 0.38,
-                minChildSize: 0.30,
-                maxChildSize: 0.85,
-                snap: true,
-                snapSizes: const [0.30, 0.85],
-                builder: (context, scrollController) => _MissionPanel(
+              // ── Panneau bas fixe ─────────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _MissionPanel(
                   mission: mission,
                   route: routes.active,
-                  scrollController: scrollController,
                   isStartingNavigation: _startingNavigation,
                   busy: _confirmingStep,
                   onNavigate: destination == null
@@ -599,41 +597,14 @@ class _NavigatingPanel extends StatelessWidget {
             ),
             SizedBox(height: AppDimens.md.h),
           ],
-          SizedBox(
-            width: double.infinity,
-            height: AppDimens.buttonHeight.h,
-            child: ElevatedButton(
-              onPressed: busy ? null : onStepAction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    arrived ? AppColors.success : AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppDimens.radiusMd),
-                ),
-              ),
-              child: busy
-                  ? SizedBox(
-                      height: 20.r,
-                      width: 20.r,
-                      child: const CircularProgressIndicator(
-                          strokeWidth: 2.5, color: AppColors.white),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.packageCheck, size: 18.r),
-                        SizedBox(width: 8.w),
-                        Text(
-                          MissionLabels.of(mission).actionButton,
-                          style: TextStyle(
-                            fontFamily: 'Archivo',
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
+          SlideToConfirm(
+            label: MissionLabels.of(mission).actionButton,
+            icon: LucideIcons.packageCheck,
+            color: mission.isPickedUp
+                ? AppColors.success
+                : AppColors.secondary,
+            busy: busy,
+            onConfirm: onStepAction,
           ),
         ],
       ),
@@ -723,7 +694,6 @@ class _TopBar extends StatelessWidget {
 class _MissionPanel extends StatelessWidget {
   final Mission mission;
   final NavRoute route;
-  final ScrollController scrollController;
   final bool isStartingNavigation;
   final VoidCallback? onNavigate;
   final VoidCallback? onExternalMaps;
@@ -734,7 +704,6 @@ class _MissionPanel extends StatelessWidget {
   const _MissionPanel({
     required this.mission,
     required this.route,
-    required this.scrollController,
     required this.isStartingNavigation,
     required this.busy,
     required this.onNavigate,
@@ -761,9 +730,18 @@ class _MissionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final contact = _contact;
+    // Orange tant qu'il va récupérer, vert quand il va livrer
+    final accent =
+        mission.isPickedUp ? AppColors.success : AppColors.secondary;
 
     return Container(
       width: double.infinity,
+      // Le panneau ne se déplie plus : sa hauteur suit son contenu.
+      // Le plafond n'est là que pour les missions très bavardes
+      // (instructions longues), où le contenu défile sur place.
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.62,
+      ),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -776,60 +754,63 @@ class _MissionPanel extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Poignée de glissement
-          Container(
-            width: 38.w,
-            height: 4.h,
-            margin: EdgeInsets.symmetric(vertical: 10.h),
-            decoration: BoxDecoration(
-              color: AppColors.grey300,
-              borderRadius: BorderRadius.circular(2.r),
-            ),
-          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(AppDimens.lg.w, AppDimens.lg.h,
+                  AppDimens.lg.w, AppDimens.md.h),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+            // Progression : deux segments, colorés selon l'étape
+            _StepProgress(isPickedUp: mission.isPickedUp, accent: accent),
+            SizedBox(height: AppDimens.md.h),
 
-          // Contenu défilant : tirer la feuille pour tout voir
-          Expanded(
-            child: ListView(
-              controller: scrollController,
-              padding: EdgeInsets.fromLTRB(
-                  AppDimens.lg.w, 0, AppDimens.lg.w, AppDimens.md.h),
-              children: [
-            // Étape + montant
+            // Étape en cours + montant mis en avant
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 10.w, vertical: 5.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySurface,
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.radiusFull),
-                  ),
+                Expanded(
                   child: Text(
-                    MissionLabels.of(mission).stepBadge,
+                    mission.isPickedUp ? 'LIVRAISON' : 'RÉCUPÉRATION',
                     style: TextStyle(
                       fontFamily: 'Archivo',
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w800,
+                      color: accent,
+                      letterSpacing: 1.1,
                     ),
                   ),
                 ),
-                const Spacer(),
                 Text(
-                  '${mission.montantFormate} ${mission.devise}',
-                  style: AppTextStyles.labelLarge
-                      .copyWith(color: AppColors.dark),
+                  mission.montantFormate,
+                  style: TextStyle(
+                    fontFamily: 'Archivo',
+                    fontSize: 26.sp,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.dark,
+                    height: 1,
+                  ),
+                ),
+                SizedBox(width: 4.w),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 2.h),
+                  child: Text(
+                    mission.devise,
+                    style: AppTextStyles.labelSmall
+                        .copyWith(color: AppColors.grey600),
+                  ),
                 ),
               ],
             ),
             SizedBox(height: AppDimens.lg.h),
 
-            // Adresse de récupération
+            // Adresse de l'étape en cours
             _InfoBlock(
               icon: LucideIcons.mapPin,
-              iconColor: AppColors.secondary,
+              iconColor: accent,
               label: MissionLabels.of(mission).addressLabel,
               value: mission.currentAddress,
               actionLabel: isStartingNavigation ? '...' : 'Y aller',
@@ -840,16 +821,16 @@ class _MissionPanel extends StatelessWidget {
             // Temps et distance jusqu'à la destination de l'étape
             if (!route.isEmpty)
               Padding(
-                padding: EdgeInsets.only(left: 50.w, top: 6.h),
+                padding: EdgeInsets.only(left: 54.w, top: 6.h),
                 child: Row(
                   children: [
                     Icon(LucideIcons.clock,
-                        size: 13.r, color: AppColors.primary),
+                        size: 14.r, color: AppColors.dark),
                     SizedBox(width: 5.w),
                     Text(
                       '${route.durationLabel} · ${route.distanceLabel}',
                       style: AppTextStyles.labelSmall
-                          .copyWith(color: AppColors.primary),
+                          .copyWith(color: AppColors.dark),
                     ),
                   ],
                 ),
@@ -858,7 +839,7 @@ class _MissionPanel extends StatelessWidget {
             // Repli vers Google Maps pour le guidage vocal
             if (onExternalMaps != null)
               Padding(
-                padding: EdgeInsets.only(left: 50.w, top: 4.h),
+                padding: EdgeInsets.only(left: 54.w, top: 4.h),
                 child: GestureDetector(
                   onTap: onExternalMaps,
                   behavior: HitTestBehavior.opaque,
@@ -866,12 +847,12 @@ class _MissionPanel extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(LucideIcons.externalLink,
-                          size: 12.r, color: AppColors.grey500),
+                          size: 13.r, color: AppColors.grey600),
                       SizedBox(width: 4.w),
                       Text(
                         'Ouvrir dans Google Maps',
                         style: AppTextStyles.caption
-                            .copyWith(color: AppColors.grey500),
+                            .copyWith(color: AppColors.grey600),
                       ),
                     ],
                   ),
@@ -883,16 +864,12 @@ class _MissionPanel extends StatelessWidget {
                 padding: EdgeInsets.symmetric(vertical: AppDimens.md.h),
                 child: Divider(height: 1, color: AppColors.grey200),
               ),
-              _InfoBlock(
-                icon: LucideIcons.user,
-                iconColor: AppColors.primary,
+              _ContactBlock(
                 label: contact.label,
-                value: contact.name?.isNotEmpty == true
-                    ? '${contact.name}\n${formatPhone(contact.phone!)}'
-                    : formatPhone(contact.phone!),
-                actionLabel: 'Appeler',
-                actionIcon: LucideIcons.phone,
-                onAction: () => onCall(contact.phone!),
+                name: contact.name,
+                phone: formatPhone(contact.phone!),
+                accent: accent,
+                onCall: () => onCall(contact.phone!),
               ),
             ],
 
@@ -914,7 +891,8 @@ class _MissionPanel extends StatelessWidget {
               ),
             ],
 
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -926,44 +904,141 @@ class _MissionPanel extends StatelessWidget {
               AppDimens.lg.w,
               MediaQuery.of(context).padding.bottom + AppDimens.md.h,
             ),
-            child: SizedBox(
-              width: double.infinity,
-              height: AppDimens.buttonHeight.h,
-              child: ElevatedButton(
-                onPressed: busy ? null : onStepAction,
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppDimens.radiusMd),
-                  ),
-                ),
-                child: busy
-                    ? SizedBox(
-                        height: 20.r,
-                        width: 20.r,
-                        child: const CircularProgressIndicator(
-                            strokeWidth: 2.5, color: AppColors.white),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(LucideIcons.packageCheck, size: 18.r),
-                          SizedBox(width: 8.w),
-                          Text(
-                            MissionLabels.of(mission).actionButton,
-                            style: TextStyle(
-                              fontFamily: 'Archivo',
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+            child: SlideToConfirm(
+              label: MissionLabels.of(mission).actionButton,
+              icon: LucideIcons.packageCheck,
+              color: accent,
+              busy: busy,
+              onConfirm: onStepAction,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Progression de la mission ─────────────────────────────────────
+class _StepProgress extends StatelessWidget {
+  final bool isPickedUp;
+  final Color accent;
+
+  const _StepProgress({required this.isPickedUp, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget segment(bool rempli) => Expanded(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: 5.h,
+            decoration: BoxDecoration(
+              color: rempli ? accent : AppColors.grey200,
+              borderRadius: BorderRadius.circular(3.r),
+            ),
+          ),
+        );
+
+    return Row(
+      children: [
+        segment(true),
+        SizedBox(width: 6.w),
+        segment(isPickedUp),
+      ],
+    );
+  }
+}
+
+// ── Interlocuteur de l'étape ──────────────────────────────────────
+class _ContactBlock extends StatelessWidget {
+  final String label;
+  final String? name;
+  final String phone;
+  final Color accent;
+  final VoidCallback onCall;
+
+  const _ContactBlock({
+    required this.label,
+    required this.name,
+    required this.phone,
+    required this.accent,
+    required this.onCall,
+  });
+
+  /// « Khary SEYE » → « KS »
+  String get _initiales {
+    final mots = (name ?? '').trim().split(RegExp(r'\s+'))
+      ..removeWhere((m) => m.isEmpty);
+    if (mots.isEmpty) return '?';
+    if (mots.length == 1) return mots.first[0].toUpperCase();
+    return (mots.first[0] + mots.last[0]).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final aUnNom = name?.isNotEmpty == true;
+
+    return Row(
+      children: [
+        Container(
+          width: 44.r,
+          height: 44.r,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: aUnNom
+              ? Text(
+                  _initiales,
+                  style: TextStyle(
+                    fontFamily: 'Archivo',
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                  ),
+                )
+              : Icon(LucideIcons.user, size: 20.r, color: accent),
+        ),
+        SizedBox(width: AppDimens.md.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.grey600)),
+              SizedBox(height: 1.h),
+              Text(
+                aUnNom ? name! : phone,
+                style: AppTextStyles.labelMedium
+                    .copyWith(color: AppColors.dark),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (aUnNom)
+                Text(phone,
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.grey700)),
+            ],
+          ),
+        ),
+        SizedBox(width: AppDimens.sm.w),
+        // Appeler : cible large, atteignable au pouce
+        GestureDetector(
+          onTap: onCall,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 46.r,
+            height: 46.r,
+            decoration: BoxDecoration(
+              color: AppColors.dark,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(LucideIcons.phone,
+                size: 19.r, color: AppColors.white),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1020,13 +1095,18 @@ class _InfoBlock extends StatelessWidget {
           ),
         ),
         SizedBox(width: AppDimens.sm.w),
-        OutlinedButton(
+        // Lancer le guidage est l'action la plus fréquente de l'écran :
+        // bouton plein, à la couleur de l'étape, pour qu'il saute aux yeux
+        ElevatedButton(
           onPressed: onAction,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.dark,
-            side: const BorderSide(color: AppColors.grey300),
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            minimumSize: Size(0, 38.h),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: iconColor,
+            foregroundColor: AppColors.white,
+            disabledBackgroundColor: iconColor.withValues(alpha: 0.45),
+            disabledForegroundColor: AppColors.white,
+            elevation: 0,
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            minimumSize: Size(0, 44.h),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppDimens.radiusMd),
             ),
@@ -1034,15 +1114,15 @@ class _InfoBlock extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(actionIcon, size: 14.r, color: AppColors.dark),
-              SizedBox(width: 5.w),
+              Icon(actionIcon, size: 16.r, color: AppColors.white),
+              SizedBox(width: 6.w),
               Text(
                 actionLabel,
                 style: TextStyle(
                   fontFamily: 'Archivo',
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.dark,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.white,
                 ),
               ),
             ],

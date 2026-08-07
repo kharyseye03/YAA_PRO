@@ -1,6 +1,40 @@
 import 'mission_statut.dart';
 import 'type_service.dart';
 
+/// Commerçant chez qui le coursier récupère la commande.
+/// Présent uniquement pour les missions LIVRAISON_COMMANDE.
+class MissionStructure {
+  final int id;
+  final String nom;
+  final String telephone;
+  final String adresse;
+  final String? logoFile;
+
+  /// Nature du commerce telle que renvoyée par l'API : « Supermarché »,
+  /// « Restaurant », « Pharmacie »… Sert de libellé à l'étape 1.
+  final String? structureType;
+
+  const MissionStructure({
+    required this.id,
+    required this.nom,
+    required this.telephone,
+    required this.adresse,
+    this.logoFile,
+    this.structureType,
+  });
+
+  factory MissionStructure.fromJson(Map<String, dynamic> json) {
+    return MissionStructure(
+      id: json['id'] as int,
+      nom: json['nom'] as String? ?? '',
+      telephone: json['telephone'] as String? ?? '',
+      adresse: json['adresse'] as String? ?? '',
+      logoFile: json['logoFile'] as String?,
+      structureType: json['structureType'] as String?,
+    );
+  }
+}
+
 /// Mission disponible pour un coursier (livraison ou course).
 class Mission {
   final int id;
@@ -30,6 +64,9 @@ class Mission {
   /// LIVRAISON uniquement : contact au point d'arrivée.
   final String? telephoneDestinataire;
 
+  /// LIVRAISON_COMMANDE uniquement : le commerçant au point de départ.
+  final MissionStructure? structure;
+
   const Mission({
     required this.id,
     required this.code,
@@ -53,6 +90,7 @@ class Mission {
     this.customerTelephone,
     this.telephoneExpediteur,
     this.telephoneDestinataire,
+    this.structure,
   });
 
   TypeService get typeServiceEnum => TypeService.from(typeService);
@@ -130,6 +168,10 @@ class Mission {
       customerTelephone: json['customerTelephone'] as String?,
       telephoneExpediteur: json['telephoneExpediteur'] as String?,
       telephoneDestinataire: json['telephoneDestinataire'] as String?,
+      structure: json['structure'] is Map<String, dynamic>
+          ? MissionStructure.fromJson(
+              json['structure'] as Map<String, dynamic>)
+          : null,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../model/auth/auth_response.dart';
 
@@ -29,6 +30,7 @@ class TokenStorage {
     await prefs.setString(_kAccessToken, auth.accessToken);
     await prefs.setString(_kRefreshToken, auth.refreshToken);
     await prefs.setInt(_kExpiresAt, expiresAt);
+    debugPrint('🔐 Tokens enregistrés (validité ${auth.expiresIn}s)');
   }
 
   Future<String?> getAccessToken() async {
@@ -56,5 +58,6 @@ class TokenStorage {
     await prefs.remove(_kRefreshToken);
     await prefs.remove(_kExpiresAt);
     await prefs.remove(_kPhone);
+    debugPrint('🔐 Tokens effacés');
   }
 }
