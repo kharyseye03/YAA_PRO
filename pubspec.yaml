@@ -58,6 +58,7 @@ dependencies:
   # ── Icons ───────────────────────────────────────────────
   cupertino_icons: ^1.0.8
   remixicon: ^4.9.3
+  geocoding: ^4.0.0
 
 dev_dependencies:
   flutter_test:

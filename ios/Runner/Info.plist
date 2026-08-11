@@ -45,5 +45,17 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Localisation : exigée par CoreLocation et le Navigation SDK.
+	     Ces textes sont affichés tels quels dans la demande iOS et lus
+	     par App Review : ils doivent dire précisément à quoi sert le GPS. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Votre position permet de vous proposer les courses proches et de vous guider jusqu'au point de récupération puis de livraison.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Votre position permet de poursuivre le guidage et de suivre la livraison même lorsque l'application est en arrière-plan.</string>
+	<!-- Guidage maintenu écran éteint ou app en arrière-plan -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>

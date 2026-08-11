@@ -1,7 +1,6 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import '../../config/maps/maps_config.dart';
 
 class LocationService {
   /// Position GPS actuelle (gère permissions + service désactivé).
@@ -30,55 +29,59 @@ class LocationService {
     );
   }
 
-  /// Coordonnées → libellé court « Quartier, Ville »
-  /// via Google Geocoding API.
-  Future<String> reverseGeocode(double lat, double lng) async {
-    final response =
-        await http.get(Uri.parse(MapsConfig.reverseGeocodeUrl(lat, lng)));
-    if (response.statusCode != 200) {
-      throw Exception('Erreur geocoding (${response.statusCode}).');
-    }
+  /// Coordonnées → libellé court « Quartier, Ville ».
+  ///
+  /// S'appuie sur le géocodeur natif de l'appareil (Geocoder côté
+  /// Android, CLGeocoder côté iOS) : ni clé API, ni quota, ni
+  /// facturation. Retourne null quand aucune adresse n'est trouvée,
+  /// l'appelant décide quoi afficher.
+  /// La locale est un réglage global du géocodeur, posé une seule fois.
+  static bool _localePosee = false;
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final results = data['results'] as List<dynamic>? ?? [];
-    if (results.isEmpty) throw Exception('Adresse introuvable.');
-
-    String? quartier;
-    String? ville;
-
-    for (final result in results) {
-      final components =
-          (result['address_components'] as List<dynamic>? ?? []);
-      for (final comp in components) {
-        final types = (comp['types'] as List<dynamic>).cast<String>();
-        final name = comp['long_name'] as String;
-        if (quartier == null &&
-            (types.contains('sublocality') ||
-                types.contains('sublocality_level_1') ||
-                types.contains('neighborhood'))) {
-          quartier = name;
-        }
-        if (ville == null && types.contains('locality')) {
-          ville = name;
-        }
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    try {
+      if (!_localePosee) {
+        await setLocaleIdentifier('fr_FR');
+        _localePosee = true;
       }
-      if (quartier != null && ville != null) break;
+      final marks = await placemarkFromCoordinates(lat, lng);
+      if (marks.isEmpty) return null;
+      final mark = marks.first;
+
+      // Du plus précis au plus large : le premier champ renseigné
+      // gagne. Les plateformes laissent des chaînes vides plutôt que
+      // null quand un niveau est inconnu.
+      final quartier = _premierNonVide(
+          [mark.subLocality, mark.thoroughfare, mark.subAdministrativeArea]);
+      final ville =
+          _premierNonVide([mark.locality, mark.administrativeArea]);
+
+      if (quartier != null && ville != null) return '$quartier, $ville';
+      return ville ?? quartier;
+    } catch (e) {
+      // Hors ligne, ou géocodeur indisponible sur l'appareil
+      debugPrint('Géocodage inverse indisponible : $e');
+      return null;
     }
+  }
 
-    if (quartier != null && ville != null) return '$quartier, $ville';
-    if (ville != null) return ville;
-    if (quartier != null) return quartier;
-
-    // Fallback : adresse formatée du premier résultat
-    return (results.first['formatted_address'] as String?) ??
-        'Position inconnue';
+  static String? _premierNonVide(List<String?> valeurs) {
+    for (final v in valeurs) {
+      final t = v?.trim();
+      if (t != null && t.isNotEmpty) return t;
+    }
+    return null;
   }
 
   /// Position + libellé en un seul appel.
+  ///
+  /// Le libellé est purement indicatif : s'il ne peut pas être résolu,
+  /// on rend quand même la position, dont dépendent les calculs de
+  /// distance et l'affichage de la carte.
   Future<({Position position, String label})> getCurrentLocation() async {
     final position = await getCurrentPosition();
     final label =
         await reverseGeocode(position.latitude, position.longitude);
-    return (position: position, label: label);
+    return (position: position, label: label ?? 'Position actuelle');
   }
 }

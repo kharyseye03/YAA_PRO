@@ -30,7 +30,12 @@ class DeliveryScreen extends ConsumerStatefulWidget {
 class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   GoogleMapViewController? _mapController;
   bool _framed = false;
-  bool _decorated = false;
+
+  /// Les marqueurs ne dépendent que de la mission : ils sont posés dès
+  /// que la carte est prête. Le tracé, lui, attend l'itinéraire et peut
+  /// donc arriver plus tard — ou jamais si l'API est indisponible.
+  bool _markersDrawn = false;
+  bool _routeDrawn = false;
 
   /// Guidage turn-by-turn natif Google en cours.
   bool _navigating = false;
@@ -89,53 +94,85 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     LatLng? dropoff,
   ) async {
     final controller = _mapController;
-    if (controller == null || _decorated || _navigating || !mounted) return;
-    final points = [...routes.active.polyline, ...routes.preview];
-    if (points.isEmpty) return;
-    _decorated = true;
+    if (controller == null || _navigating || !mounted) return;
+
+    final tracePoints = [...routes.active.polyline, ...routes.preview];
+    final etapes = [
+      if (pickup != null) pickup,
+      if (dropoff != null) dropoff,
+    ];
+    if (tracePoints.isEmpty && etapes.isEmpty) return;
 
     try {
-      final icons = await _markerIcons;
-      await controller.addMarkers([
-        if (pickup != null)
-          MarkerOptions(
-            position: pickup,
-            icon: icons?.depart ?? ImageDescriptor.defaultImage,
-            anchor: const MarkerAnchor(u: 0.5, v: 1),
-            infoWindow: const InfoWindow(title: 'Récupération'),
-          ),
-        if (dropoff != null)
-          MarkerOptions(
-            position: dropoff,
-            icon: icons?.arrivee ?? ImageDescriptor.defaultImage,
-            anchor: const MarkerAnchor(u: 0.5, v: 1),
-            infoWindow: const InfoWindow(title: 'Livraison'),
-          ),
-      ]);
+      // Les repères viennent des coordonnées de la mission : ils
+      // s'affichent même quand l'itinéraire est indisponible.
+      if (!_markersDrawn && etapes.isNotEmpty) {
+        _markersDrawn = true;
+        final icons = await _markerIcons;
+        await controller.addMarkers([
+          if (pickup != null)
+            MarkerOptions(
+              position: pickup,
+              icon: icons?.depart ?? ImageDescriptor.defaultImage,
+              anchor: const MarkerAnchor(u: 0.5, v: 1),
+              infoWindow: const InfoWindow(title: 'Récupération'),
+            ),
+          if (dropoff != null)
+            MarkerOptions(
+              position: dropoff,
+              icon: icons?.arrivee ?? ImageDescriptor.defaultImage,
+              anchor: const MarkerAnchor(u: 0.5, v: 1),
+              infoWindow: const InfoWindow(title: 'Livraison'),
+            ),
+        ]);
+      }
 
-      await controller.addPolylines([
-        // Aperçu du trajet de la course (étape 1 seulement)
-        if (routes.preview.isNotEmpty)
-          PolylineOptions(
-            points: routes.preview,
-            strokeColor: AppColors.grey400,
-            strokeWidth: 5,
-            strokeJointType: StrokeJointType.round,
-          ),
-        // Étape en cours : ma position → destination du moment
-        if (routes.active.polyline.isNotEmpty)
-          PolylineOptions(
-            points: routes.active.polyline,
-            strokeColor: AppColors.dark,
-            strokeWidth: 6,
-            strokeJointType: StrokeJointType.round,
-          ),
-      ]);
+      if (!_routeDrawn && tracePoints.isNotEmpty) {
+        _routeDrawn = true;
+        await controller.addPolylines([
+          // Aperçu du trajet de la course (étape 1 seulement)
+          if (routes.preview.isNotEmpty)
+            PolylineOptions(
+              points: routes.preview,
+              strokeColor: AppColors.grey400,
+              strokeWidth: 5,
+              strokeJointType: StrokeJointType.round,
+            ),
+          // Étape en cours : ma position → destination du moment
+          if (routes.active.polyline.isNotEmpty)
+            PolylineOptions(
+              points: routes.active.polyline,
+              strokeColor: AppColors.dark,
+              strokeWidth: 6,
+              strokeJointType: StrokeJointType.round,
+            ),
+        ]);
+      }
 
-      await _frameRoute(points);
+      // À défaut d'itinéraire, on cadre sur les deux points d'étape :
+      // le livreur voit où il doit aller, même sans tracé.
+      await _frameRoute(tracePoints.isNotEmpty ? tracePoints : etapes);
     } catch (e) {
       debugPrint('Carte mission indisponible : $e');
-      _decorated = false;
+      _markersDrawn = false;
+      _routeDrawn = false;
+    }
+  }
+
+  /// Efface repères et tracés avant de redessiner l'étape suivante :
+  /// `addMarkers` empile sans remplacer, on se retrouverait sinon avec
+  /// les marqueurs de l'étape 1 sous ceux de l'étape 2.
+  Future<void> _resetMapOverlays() async {
+    _markersDrawn = false;
+    _routeDrawn = false;
+    _framed = false;
+    final controller = _mapController;
+    if (controller == null) return;
+    try {
+      await controller.clearMarkers();
+      await controller.clearPolylines();
+    } catch (e) {
+      debugPrint('Nettoyage de la carte : $e');
     }
   }
 
@@ -227,8 +264,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
         await _navService.stopGuidance();
         if (mounted) setState(() => _navigating = false);
       }
-      _decorated = false;
-      _framed = false;
+      await _resetMapOverlays();
       _arrived = false;
       ref.invalidate(activeMissionProvider);
       if (mounted) {
