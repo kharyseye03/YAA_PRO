@@ -134,7 +134,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           if (routes.preview.isNotEmpty)
             PolylineOptions(
               points: routes.preview,
-              strokeColor: AppColors.grey400,
+              strokeColor: AppColors.primary,
               strokeWidth: 5,
               strokeJointType: StrokeJointType.round,
             ),
