@@ -1,4 +1,4 @@
-package com.example.yaa_pro
+package gn.yaa.pro
 
 import io.flutter.embedding.android.FlutterActivity
 

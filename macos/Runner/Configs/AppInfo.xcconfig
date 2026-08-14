@@ -8,7 +8,7 @@
 PRODUCT_NAME = yaa_pro
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.yaaPro
+PRODUCT_BUNDLE_IDENTIFIER = gn.yaa.pro
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 YAA. All rights reserved.

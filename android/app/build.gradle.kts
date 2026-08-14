@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.yaa_pro"
+    namespace = "gn.yaa.pro"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,8 +22,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.yaa_pro"
+        // Identité définitive de l'app sur le Play Store : ne plus jamais
+        // la changer une fois la première version publiée.
+        applicationId = "gn.yaa.pro"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // Navigation SDK Google Maps : API 24 minimum
