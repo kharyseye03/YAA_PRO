@@ -756,11 +756,11 @@ class _MissionPanel extends StatelessWidget {
         phone: MissionLabels.contactPhoneOf(mission),
       );
 
-  /// 773809954 → 77 380 99 54
+  /// 622123456 → 622 12 34 56
   static String formatPhone(String raw) {
     final d = raw.replaceAll(RegExp(r'\D'), '');
     if (d.length != 9) return raw;
-    return '${d.substring(0, 2)} ${d.substring(2, 5)} '
+    return '${d.substring(0, 3)} ${d.substring(3, 5)} '
         '${d.substring(5, 7)} ${d.substring(7)}';
   }
 
@@ -850,7 +850,7 @@ class _MissionPanel extends StatelessWidget {
               iconColor: accent,
               label: MissionLabels.of(mission).addressLabel,
               value: mission.currentAddress,
-              actionLabel: isStartingNavigation ? '...' : 'Y aller',
+              actionLabel: isStartingNavigation ? '...' : 'Démarrer',
               actionIcon: LucideIcons.navigation,
               onAction: isStartingNavigation ? null : onNavigate,
             ),

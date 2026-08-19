@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/type_service_ui.dart';
 import '../../model/gains/gains_summary.dart';
 import '../../model/order/type_service.dart';
 import 'providers/gains_provider.dart';
@@ -193,7 +194,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                         Padding(
                           padding: EdgeInsets.only(bottom: 6.h),
                           child: Text(
-                            'FCFA',
+                            'GNF',
                             style: AppTextStyles.labelMedium.copyWith(
                               color: AppColors.white.withValues(alpha: 0.55),
                             ),
@@ -218,8 +219,8 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                         Text(
                           _balanceVisible
                               ? '+${summary?.aujourdhuiFormate ?? '0'} '
-                                  '${summary?.devise ?? 'FCFA'} aujourd\'hui'
-                              : '•••••• FCFA aujourd\'hui',
+                                  '${summary?.devise ?? 'GNF'} aujourd\'hui'
+                              : '•••••• GNF aujourd\'hui',
                           style: TextStyle(
                             fontFamily: 'Archivo',
                             fontSize: 12.sp,
@@ -428,7 +429,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                           ),
                           const Spacer(),
                           Text(
-                            '+${formatMontant(day.total)} FCFA',
+                            '+${formatMontant(day.total)} GNF',
                             style: AppTextStyles.labelSmall
                                 .copyWith(color: AppColors.success),
                           ),
@@ -576,30 +577,9 @@ class _CourseTile extends StatelessWidget {
   const _CourseTile({required this.mission, required this.onTap});
 
   /// Couleurs selon le type de service.
-  static ({Color bg, Color icon}) typeColor(String type) =>
-      switch (type.toUpperCase()) {
-        'LIVRAISON' => (
-            bg: AppColors.catRestaurantLight,
-            icon: AppColors.catRestaurant
-          ),
-        'COURSE' => (bg: AppColors.infoLight, icon: AppColors.info),
-        'LIVRAISON_COMMANDE' => (
-            bg: AppColors.catBoutiqueLight,
-            icon: AppColors.catBoutique
-          ),
-        _ => (bg: AppColors.primarySurface, icon: AppColors.primary),
-      };
-
-  static IconData typeIcon(String type) => switch (type.toUpperCase()) {
-        'LIVRAISON' => LucideIcons.package,
-        'COURSE' => LucideIcons.userCheck,
-        'LIVRAISON_COMMANDE' => LucideIcons.shoppingBag,
-        _ => LucideIcons.mapPin,
-      };
-
   @override
   Widget build(BuildContext context) {
-    final cc = typeColor(mission.typeService);
+    final cc = mission.typeServiceEnum.couleurs;
 
     return GestureDetector(
       onTap: onTap,
@@ -628,8 +608,8 @@ class _CourseTile extends StatelessWidget {
                 color: cc.bg,
                 borderRadius: BorderRadius.circular(AppDimens.radiusSm),
               ),
-              child: Icon(typeIcon(mission.typeService),
-                  color: cc.icon, size: 20.r),
+              child: Icon(mission.typeServiceEnum.icone,
+                  color: cc.fg, size: 20.r),
             ),
             SizedBox(width: AppDimens.md.w),
 

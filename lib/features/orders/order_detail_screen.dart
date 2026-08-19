@@ -267,7 +267,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                         padding: EdgeInsets.symmetric(
                             horizontal: AppDimens.screenPadding.w),
                         child: Text(
-                          '${o.amount} FCFA',
+                          '${o.amount} GNF',
                           style: TextStyle(
                             fontFamily: 'Archivo',
                             fontSize: 28.sp,

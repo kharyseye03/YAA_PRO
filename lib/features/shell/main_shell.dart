@@ -52,6 +52,15 @@ class _MainShellState extends ConsumerState<MainShell>
   };
 
   void _onTabTap(int index) {
+    // Les filtres sont un choix ponctuel, pas une préférence : on
+    // repart de « Toutes » à chaque ouverture de l'onglet Commandes,
+    // sinon le livreur retrouve un filtre posé la veille sans
+    // comprendre pourquoi sa liste est vide.
+    if (index == 1) {
+      ref.read(orderFilterProvider.notifier).state = OrderFilter.toutes;
+      ref.read(nearRadiusProvider.notifier).state = kNearRadiusOptions.first;
+    }
+
     for (final provider in _onEnter[index] ?? const <ProviderOrFamily>[]) {
       ref.invalidate(provider);
     }

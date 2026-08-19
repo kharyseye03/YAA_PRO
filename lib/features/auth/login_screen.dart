@@ -10,7 +10,7 @@ import '../shell/main_shell.dart';
 import 'providers/auth_notifier.dart';
 import 'providers/driver_provider.dart';
 
-// ── Formatter téléphone : XX XXX XX XX (max 9 chiffres) ────────
+// ── Formatter téléphone : XXX XX XX XX (max 9 chiffres) ───────
 class _PhoneFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -20,7 +20,7 @@ class _PhoneFormatter extends TextInputFormatter {
 
     final buffer = StringBuffer();
     for (int i = 0; i < digits.length; i++) {
-      if (i == 2 || i == 5 || i == 7) buffer.write(' ');
+      if (i == 3 || i == 5 || i == 7) buffer.write(' ');
       buffer.write(digits[i]);
     }
     final formatted = buffer.toString();
@@ -138,26 +138,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ── Logo ────────────────────────────────────
+                // L'espace sous le logo vient des marges blanches de
+                // l'image elle-même : on le réduit en réduisant le
+                // cadre, pas en jouant sur un SizedBox qui n'existe pas.
                 Center(
-                  child: Column(
-                    children: [
-                     Image.asset(
-                          'assets/images/logo-pro3.jpeg',
-                          width: 200.w,
-                          height: 200.h,
-                     ),
-                    ],
+                  child: Image.asset(
+                    'assets/images/logo-pro3.jpeg',
+                    width: 130.w,
+                    height: 130.h,
                   ),
                 ),
 
                 // ── Titre ───────────────────────────────────
                 RichText(
                   text: TextSpan(
-                    text: 'Bon retour\n',
+                    text: 'Bon ',
                     style: AppTextStyles.h2,
                     children: [
                       TextSpan(
-                        text: 'chez vous 👋',
+                        text: 'retour',
                         style: AppTextStyles.h2
                             .copyWith(color: AppColors.secondary),
                       ),
@@ -179,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [_PhoneFormatter()],
-                  decoration: _inputDeco(hint: '77 123 45 67'),
+                  decoration: _inputDeco(hint: '622 12 34 56'),
                   validator: (v) {
                     final digits = v?.replaceAll(' ', '') ?? '';
                     if (digits.isEmpty) return 'Téléphone requis';

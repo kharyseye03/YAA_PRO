@@ -165,7 +165,7 @@ class Mission {
       distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0,
       dureeMinutes: (json['dureeMinutes'] as num?)?.toInt() ?? 0,
       montant: (json['montant'] as num?)?.toDouble() ?? 0,
-      devise: json['devise'] as String? ?? 'FCFA',
+      devise: json['devise'] as String? ?? 'GNF',
       instructions: json['instructions'] as String? ?? '',
       dateCreationMission: json['dateCreationMission'] != null
           ? DateTime.tryParse(json['dateCreationMission'] as String)

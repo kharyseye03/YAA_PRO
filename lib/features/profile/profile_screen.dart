@@ -26,7 +26,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Sinon la prochaine connexion rouvre l'app sur cet onglet
     ref.read(shellIndexProvider.notifier).state = 0;
     await ref.read(authProvider.notifier).logout();
-    if (mounted) context.goNamed(RouteNames.login);
+    // Retour à l'onboarding plutôt qu'au login : la déconnexion remet
+    // l'app dans l'état d'un premier lancement, et le livreur retrouve
+    // l'écran d'accueil de la marque avant de se reconnecter.
+    if (mounted) context.goNamed(RouteNames.onboarding);
   }
 
   @override
