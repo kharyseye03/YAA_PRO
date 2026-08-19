@@ -6,6 +6,7 @@ import '../../config/api/api_config.dart';
 import '../../core/constants/constants.dart';
 import 'providers/accept_mission.dart';
 import 'providers/orders_provider.dart';
+import 'widgets/produits_commande_block.dart';
 
 // ── Données de la commande ──────────────────────────────────────
 class OrderDetailArgs {
@@ -318,16 +319,31 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                         _SectionCard(
                           title: 'Récupérer chez',
                           icon: LucideIcons.store,
-                          child: _ContactSection(
-                            name: pickupName,
-                            phone: pickupPhone,
-                            logoUrl: structure?.logoFile != null
-                                ? ApiConfig.getImageUrl(
-                                    structure!.logoFile!)
-                                : null,
-                            avatarColor: AppColors.primarySurface,
-                            avatarIconColor: AppColors.primary,
-                            avatarIcon: Icons.storefront_rounded,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _ContactSection(
+                                name: pickupName,
+                                phone: pickupPhone,
+                                logoUrl: structure?.logoFile != null
+                                    ? ApiConfig.getImageUrl(
+                                        structure!.logoFile!)
+                                    : null,
+                                avatarColor: AppColors.primarySurface,
+                                avatarIconColor: AppColors.primary,
+                                avatarIcon: Icons.storefront_rounded,
+                              ),
+                              // Ce qu'il y a à prendre au comptoir, sous
+                              // l'enseigne où il faut aller le chercher.
+                              if (detail?.commandeStructureId != null) ...[
+                                SizedBox(height: AppDimens.md.h),
+                                ProduitsCommandeBlock(
+                                  commandeStructureId:
+                                      detail!.commandeStructureId!,
+                                  accent: AppColors.secondary,
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       if (pickupName != null)

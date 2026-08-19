@@ -68,7 +68,13 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.scaffold,
-      body: CustomScrollView(
+      body: RefreshIndicator(
+        color: AppColors.secondary,
+        onRefresh: () async => ref.invalidate(gainsProvider),
+        child: CustomScrollView(
+        // Sans ça, un historique court n'est pas défilable et le geste
+        // de rafraîchissement ne se déclenche jamais.
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           // ── Header ─────────────────────────────────────────
           SliverToBoxAdapter(
@@ -457,6 +463,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
 
           SliverToBoxAdapter(child: SizedBox(height: 90.h)),
         ],
+        ),
       ),
     );
   }

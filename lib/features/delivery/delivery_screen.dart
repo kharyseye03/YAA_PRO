@@ -16,6 +16,7 @@ import '../../service/maps/navigation_service.dart';
 import '../auth/providers/auth_notifier.dart';
 import '../home/providers/location_provider.dart';
 import '../orders/providers/orders_provider.dart';
+import '../orders/widgets/produits_commande_block.dart';
 import 'providers/active_mission_provider.dart';
 
 /// Écran affiché tant que le livreur a une mission en cours.
@@ -924,6 +925,17 @@ class _MissionPanel extends StatelessWidget {
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.grey800),
                 ),
+              ),
+            ],
+
+            // Ce qu'il y a à récupérer chez le commerçant. Inutile une
+            // fois la commande en main : à l'étape 2 le coursier livre.
+            if (!mission.isPickedUp &&
+                mission.commandeStructureId != null) ...[
+              SizedBox(height: AppDimens.md.h),
+              ProduitsCommandeBlock(
+                commandeStructureId: mission.commandeStructureId!,
+                accent: accent,
               ),
             ],
 

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../../model/order/commande_produit.dart';
 import '../../../model/order/mission.dart';
 import '../../auth/providers/auth_notifier.dart';
 import '../../home/providers/location_provider.dart';
@@ -75,9 +76,27 @@ int _byDateDesc(Mission a, Mission b) {
 
 /// Détail complet d'une mission : contacts, commerçant, instructions.
 /// Ces champs n'existent pas dans la liste, il faut les charger à part.
+/// `autoDispose` : le détail est rechargé à chaque ouverture de la
+/// fiche, sinon une mission consultée deux fois afficherait un statut
+/// figé au premier affichage.
 final missionDetailProvider =
-    FutureProvider.family<Mission, int>((ref, missionId) async {
+    FutureProvider.autoDispose.family<Mission, int>((ref, missionId) async {
   return ref.read(apiServiceProvider).getMissionDetail(missionId);
+});
+
+/// Articles de la commande passée chez le commerçant, pour une mission
+/// LIVRAISON_COMMANDE. Indexé sur `commandeStructureId`, pas sur l'id
+/// de la mission — les deux écrans qui l'affichent partagent donc le
+/// même cache.
+///
+/// Renvoie `null` si l'endpoint est indisponible : l'affichage des
+/// articles est un confort, jamais un prérequis.
+final commandeProduitsProvider =
+    FutureProvider.autoDispose.family<CommandeStructureDetail?, int>(
+        (ref, commandeStructureId) async {
+  return ref
+      .read(apiServiceProvider)
+      .getCommandeStructureDetail(commandeStructureId);
 });
 
 /// Filtre actuellement sélectionné sur l'écran Commandes.

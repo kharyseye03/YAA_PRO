@@ -67,6 +67,11 @@ class Mission {
   /// LIVRAISON_COMMANDE uniquement : le commerçant au point de départ.
   final MissionStructure? structure;
 
+  /// LIVRAISON_COMMANDE uniquement : identifiant de la commande passée
+  /// chez le commerçant. Le détail des articles n'est pas inclus ici,
+  /// il faut un appel séparé avec cet identifiant.
+  final int? commandeStructureId;
+
   const Mission({
     required this.id,
     required this.code,
@@ -91,6 +96,7 @@ class Mission {
     this.telephoneExpediteur,
     this.telephoneDestinataire,
     this.structure,
+    this.commandeStructureId,
   });
 
   TypeService get typeServiceEnum => TypeService.from(typeService);
@@ -172,6 +178,7 @@ class Mission {
           ? MissionStructure.fromJson(
               json['structure'] as Map<String, dynamic>)
           : null,
+      commandeStructureId: (json['commandeStructureId'] as num?)?.toInt(),
     );
   }
 }

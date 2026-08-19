@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:remixicon/remixicon.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/auto_refresh.dart';
+import '../auth/providers/driver_provider.dart';
 import '../delivery/delivery_screen.dart';
 import '../delivery/providers/active_mission_provider.dart';
 import '../home/home_screen.dart';
 import '../orders/orders_screen.dart';
 import '../orders/providers/orders_provider.dart';
 import '../gains/gains_screen.dart';
+import '../gains/providers/gains_provider.dart';
 import '../profile/profile_screen.dart';
 
 /// Provider global pour l'index du tab actif
@@ -21,13 +24,39 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell>
+    with AutoRefreshMixin {
   static const List<Widget> _screens = [
     HomeScreen(),
     OrdersScreen(),
     GainsScreen(),
     ProfileScreen(),
   ];
+
+  /// Les commandes disponibles apparaissent sans action du livreur :
+  /// elles sont rechargées en continu depuis le shell, qui survit aux
+  /// changements d'onglet.
+  @override
+  List<ProviderOrFamily> get autoRefreshTargets => [
+        allOrdersProvider,
+        availableOrdersProvider,
+      ];
+
+  /// Données rechargées en arrivant sur un onglet, pour ne jamais
+  /// ouvrir un écran sur un affichage périmé.
+  static final Map<int, List<ProviderOrFamily>> _onEnter = {
+    0: [allOrdersProvider],
+    1: [allOrdersProvider, availableOrdersProvider],
+    2: [gainsProvider],
+    3: [driverDetailProvider],
+  };
+
+  void _onTabTap(int index) {
+    for (final provider in _onEnter[index] ?? const <ProviderOrFamily>[]) {
+      ref.invalidate(provider);
+    }
+    ref.read(shellIndexProvider.notifier).state = index;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +79,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       bottomNavigationBar: _ProBottomNav(
         currentIndex: currentIndex,
         ordersBadge: ordersCount > 0 ? '$ordersCount' : null,
-        onTap: (i) => ref.read(shellIndexProvider.notifier).state = i,
+        onTap: _onTabTap,
       ),
     );
   }

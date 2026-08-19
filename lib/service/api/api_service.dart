@@ -8,6 +8,7 @@ import '../../config/api/api_config.dart';
 import '../../model/auth/auth_response.dart';
 import '../../model/driver/driver_detail.dart';
 import '../../model/gains/gains_summary.dart';
+import '../../model/order/commande_produit.dart';
 import '../../model/order/history_mission.dart';
 import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
@@ -409,6 +410,45 @@ class ApiService {
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  /// Articles de la commande à récupérer chez le commerçant.
+  ///
+  /// Renvoie null plutôt que de lever : ce bloc est un confort
+  /// d'affichage, il ne doit jamais empêcher le coursier de mener sa
+  /// mission si l'endpoint est indisponible ou interdit à son rôle.
+  Future<CommandeStructureDetail?> getCommandeStructureDetail(
+      int commandeStructureId) async {
+    final url = ApiConfig.getUrl(
+        ApiConfig.commandeStructureDetailEndpoint(commandeStructureId));
+    try {
+      debugPrint('🌐 GET $url');
+      final response = await _authed((token) => http.get(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          ));
+      debugPrint('📡 Status → ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        // Contrairement au reste de l'API, cet endpoint renvoie le DTO
+        // directement, sans enveloppe `ApiResponse`. On accepte les
+        // deux formes plutôt que de dépendre de celle du moment.
+        final data = body['data'] is Map<String, dynamic>
+            ? body['data'] as Map<String, dynamic>
+            : body;
+        final detail = CommandeStructureDetail.fromJson(data);
+        debugPrint('🛍 ${detail.produits.length} article(s) reçus');
+        return detail;
+      }
+      debugPrint('⚠️ Articles de la commande indisponibles '
+          '(${response.statusCode}) — bloc masqué. '
+          'Corps : ${response.body}');
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ Articles de la commande → $e');
+      return null;
     }
   }
 
