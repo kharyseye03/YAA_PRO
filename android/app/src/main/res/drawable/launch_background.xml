@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Fenêtre affichée par Android pendant le démarrage du processus et
+     l'initialisation du moteur Flutter. Elle ne peut pas être
+     supprimée : tout ce qu'on peut faire, c'est la rendre identique au
+     premier écran de l'app pour que la transition soit invisible.
+     Fond blanc et logo centré à la même taille que le splash Flutter,
+     déclinés par densité dans drawable-*dpi/launch_logo.png. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/white" />
 
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
+    <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+            android:src="@drawable/launch_logo" />
+    </item>
 </layer-list>

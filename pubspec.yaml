@@ -90,7 +90,16 @@ flutter:
           weight: 800
 
   # ── Assets ──────────────────────────────────────────────
+  # On déclare les fichiers un par un, jamais les dossiers : Flutter
+  # embarque tout ce qu'un dossier déclaré contient, utilisé ou non.
+  # `assets/images/` faisait ainsi voyager 30 Mo d'images mortes dans
+  # chaque installation, dont un PNG de 4096 px jamais affiché.
+  #
+  # Les polices ne sont pas listées ici : la section `fonts:` ci-dessous
+  # les empaquette déjà. Les déclarer aussi comme assets embarquait les
+  # 112 fichiers du dossier — italiques, variables, README compris — en
+  # plus des 5 graisses réellement utilisées.
   assets:
-    - assets/images/
-    - assets/fonts/
-    - assets/icones/
+    - assets/images/logo-pro3.jpeg
+    - assets/images/map2.png
+    - assets/images/ob2.jpeg

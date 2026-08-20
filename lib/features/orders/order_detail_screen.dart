@@ -143,6 +143,9 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                       Image.asset(
                         'assets/images/map2.png',
                         fit: BoxFit.cover,
+                        // Bandeau de 260 px de haut : inutile de
+                        // décoder les 916×1717 pixels du fichier.
+                        cacheWidth: 900,
                       ),
                       // Gradient overlay bas → transparent
                       Positioned.fill(

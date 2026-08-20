@@ -37,10 +37,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    // Restauration de session en parallèle de l'animation
+    // Restauration de session en parallèle de l'animation.
+    //
+    // Le délai plancher couvre l'animation d'entrée (1200 ms) sans
+    // aller au-delà : il s'ajoute au temps de démarrage du moteur, que
+    // l'utilisateur a déjà attendu. Trois secondes de plus donnaient
+    // une app qui semble mettre cinq secondes à s'ouvrir.
     final results = await Future.wait([
       ref.read(authProvider.notifier).tryAutoLogin(),
-      Future.delayed(const Duration(milliseconds: 3000)),
+      Future.delayed(const Duration(milliseconds: 1200)),
     ]);
     if (!mounted) return;
     final loggedIn = results[0] as bool;
@@ -113,6 +118,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     Image.asset(
                       'assets/images/logo-pro3.jpeg',
                       width: 300,
+                      // Décodé à ~2× la taille d'affichage plutôt qu'à
+                      // ses 2752 px d'origine : c'est le tout premier
+                      // écran, autant ne pas le faire attendre.
+                      cacheWidth: 600,
                     ),
                   ],
                 ),

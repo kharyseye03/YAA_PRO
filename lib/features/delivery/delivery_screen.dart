@@ -453,7 +453,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                   ),
                 ),
                 // ⏳ Test : simule le trajet sans se déplacer
-                if (kDebugMode)
+                if (!kReleaseMode)
                   Positioned(
                     top: MediaQuery.of(context).padding.top + 12.h,
                     left: AppDimens.screenPadding.w,
@@ -706,7 +706,7 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           // Sortie de secours réservée aux tests
-          if (kDebugMode)
+          if (!kReleaseMode)
             GestureDetector(
               onTap: onQuit,
               behavior: HitTestBehavior.opaque,
