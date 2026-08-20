@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/constants/constants.dart';
+import '../../../core/utils/type_service_ui.dart';
 import '../../../model/gains/gains_summary.dart';
 
 /// Ouvre le détail d'une mission terminée.
@@ -35,11 +36,11 @@ class _MissionGainSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLivraison = mission.isLivraison;
-    final accent =
-        isLivraison ? AppColors.catRestaurant : AppColors.info;
-    final accentSoft =
-        isLivraison ? AppColors.catRestaurantLight : AppColors.infoLight;
+    // Même mapping que les badges des autres écrans : un choix binaire
+    // livraison/course confondait « Commande » avec « Livraison ».
+    final couleurs = mission.typeServiceEnum.couleurs;
+    final accent = couleurs.fg;
+    final accentSoft = couleurs.bg;
 
     return Container(
       decoration: BoxDecoration(

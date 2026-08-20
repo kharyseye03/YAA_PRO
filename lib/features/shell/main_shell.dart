@@ -51,16 +51,23 @@ class _MainShellState extends ConsumerState<MainShell>
     3: [driverDetailProvider],
   };
 
-  void _onTabTap(int index) {
-    // Les filtres sont un choix ponctuel, pas une préférence : on
-    // repart de « Toutes » à chaque ouverture de l'onglet Commandes,
-    // sinon le livreur retrouve un filtre posé la veille sans
-    // comprendre pourquoi sa liste est vide.
-    if (index == 1) {
-      ref.read(orderFilterProvider.notifier).state = OrderFilter.toutes;
-      ref.read(nearRadiusProvider.notifier).state = kNearRadiusOptions.first;
+  /// Les filtres sont un choix ponctuel, pas une préférence : chaque
+  /// onglet se rouvre sur sa vue complète. Sans ça, le livreur
+  /// retrouve un filtre posé la veille et ne comprend pas pourquoi sa
+  /// liste est vide.
+  void _resetFiltres(int index) {
+    switch (index) {
+      case 1:
+        ref.read(orderFilterProvider.notifier).state = OrderFilter.toutes;
+        ref.read(nearRadiusProvider.notifier).state =
+            kNearRadiusOptions.first;
+      case 2:
+        ref.read(gainsFilterProvider.notifier).state = const GainsFilter();
     }
+  }
 
+  void _onTabTap(int index) {
+    _resetFiltres(index);
     for (final provider in _onEnter[index] ?? const <ProviderOrFamily>[]) {
       ref.invalidate(provider);
     }
