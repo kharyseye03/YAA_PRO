@@ -16,6 +16,7 @@ import '../../service/maps/navigation_service.dart';
 import '../auth/providers/auth_notifier.dart';
 import '../home/providers/location_provider.dart';
 import '../orders/providers/orders_provider.dart';
+import '../orders/widgets/produits_commande_block.dart';
 import 'providers/active_mission_provider.dart';
 
 /// Écran affiché tant que le livreur a une mission en cours.
@@ -452,7 +453,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                   ),
                 ),
                 // ⏳ Test : simule le trajet sans se déplacer
-                if (kDebugMode)
+                if (!kReleaseMode)
                   Positioned(
                     top: MediaQuery.of(context).padding.top + 12.h,
                     left: AppDimens.screenPadding.w,
@@ -705,7 +706,7 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           // Sortie de secours réservée aux tests
-          if (kDebugMode)
+          if (!kReleaseMode)
             GestureDetector(
               onTap: onQuit,
               behavior: HitTestBehavior.opaque,
@@ -755,11 +756,11 @@ class _MissionPanel extends StatelessWidget {
         phone: MissionLabels.contactPhoneOf(mission),
       );
 
-  /// 773809954 → 77 380 99 54
+  /// 622123456 → 622 12 34 56
   static String formatPhone(String raw) {
     final d = raw.replaceAll(RegExp(r'\D'), '');
     if (d.length != 9) return raw;
-    return '${d.substring(0, 2)} ${d.substring(2, 5)} '
+    return '${d.substring(0, 3)} ${d.substring(3, 5)} '
         '${d.substring(5, 7)} ${d.substring(7)}';
   }
 
@@ -849,7 +850,7 @@ class _MissionPanel extends StatelessWidget {
               iconColor: accent,
               label: MissionLabels.of(mission).addressLabel,
               value: mission.currentAddress,
-              actionLabel: isStartingNavigation ? '...' : 'Y aller',
+              actionLabel: isStartingNavigation ? '...' : 'Démarrer',
               actionIcon: LucideIcons.navigation,
               onAction: isStartingNavigation ? null : onNavigate,
             ),
@@ -924,6 +925,17 @@ class _MissionPanel extends StatelessWidget {
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.grey800),
                 ),
+              ),
+            ],
+
+            // Ce qu'il y a à récupérer chez le commerçant. Inutile une
+            // fois la commande en main : à l'étape 2 le coursier livre.
+            if (!mission.isPickedUp &&
+                mission.commandeStructureId != null) ...[
+              SizedBox(height: AppDimens.md.h),
+              ProduitsCommandeBlock(
+                commandeStructureId: mission.commandeStructureId!,
+                accent: accent,
               ),
             ],
 

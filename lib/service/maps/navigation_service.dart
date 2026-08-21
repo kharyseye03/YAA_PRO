@@ -118,7 +118,13 @@ class NavigationService {
     }
   }
 
-  /// Message utilisateur correspondant à un échec de démarrage.
+  /// Message affiché au livreur quand le guidage ne démarre pas.
+  ///
+  /// Volontairement neutre : ni service tiers nommé, ni cause
+  /// technique. Un livreur n'a pas à savoir quel fournisseur de cartes
+  /// nous utilisons, et un message qui parle de serveurs ou de quota
+  /// inquiète sans lui dire quoi faire. Le détail reste dans les logs
+  /// via debugPrint, pour nous.
   static String messageFor(NavStartResult result) => switch (result) {
         NavStartResult.ok => '',
         NavStartResult.termsRefused =>
@@ -126,14 +132,14 @@ class NavigationService {
         NavStartResult.routeNotFound =>
           'Aucun itinéraire trouvé vers ce point.',
         NavStartResult.networkError =>
-          'Guidage indisponible : le téléphone n\'arrive pas à joindre '
-              'les serveurs Google. Vérifiez l\'accès Internet.',
-        NavStartResult.apiKeyNotAuthorized =>
-          'Clé Google non autorisée pour le Navigation SDK.',
-        NavStartResult.quotaExceeded =>
-          'Quota Google dépassé pour le guidage.',
+          'Guidage indisponible. Vérifiez votre connexion et réessayez.',
         NavStartResult.locationUnavailable =>
-          'Position GPS indisponible : activez la localisation.',
-        NavStartResult.error => 'Impossible de démarrer le guidage.',
+          'Activez la localisation pour démarrer le guidage.',
+        // Clé, quota, panne : le livreur ne peut rien y faire, on ne
+        // lui donne donc qu'une consigne actionnable.
+        NavStartResult.apiKeyNotAuthorized ||
+        NavStartResult.quotaExceeded ||
+        NavStartResult.error =>
+          'Guidage indisponible pour le moment. Réessayez dans un instant.',
       };
 }

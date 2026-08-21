@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/type_service_ui.dart';
 import '../../model/gains/gains_summary.dart' show formatMontant;
 import '../../model/order/history_mission.dart';
 import '../../model/order/mission_statut.dart';
@@ -82,7 +83,7 @@ class HistoryScreen extends ConsumerWidget {
                       _SummaryCard(
                         label: 'Total gagné',
                         value: formatMontant(totals?.gain ?? 0),
-                        unit: 'FCFA',
+                        unit: 'GNF',
                         icon: LucideIcons.wallet,
                         color: AppColors.success,
                       ),
@@ -143,7 +144,7 @@ class HistoryScreen extends ConsumerWidget {
                                       .copyWith(color: AppColors.grey700)),
                               const Spacer(),
                               Text(
-                                '+${formatMontant(day.total)} FCFA',
+                                '+${formatMontant(day.total)} GNF',
                                 style: AppTextStyles.labelSmall
                                     .copyWith(color: AppColors.success),
                               ),
@@ -186,21 +187,6 @@ class HistoryScreen extends ConsumerWidget {
   }
 }
 
-/// Couleurs du badge selon le type de service.
-({Color bg, Color text}) typeColors(String type) =>
-    switch (type.toUpperCase()) {
-      'LIVRAISON' => (
-          bg: AppColors.catRestaurantLight,
-          text: AppColors.catRestaurant
-        ),
-      'COURSE' => (bg: AppColors.infoLight, text: AppColors.info),
-      'LIVRAISON_COMMANDE' => (
-          bg: AppColors.catBoutiqueLight,
-          text: AppColors.catBoutique
-        ),
-      _ => (bg: AppColors.primarySurface, text: AppColors.primary),
-    };
-
 // ── Carte de mission ──────────────────────────────────────────────
 class _MissionTile extends StatelessWidget {
   final HistoryMission mission;
@@ -210,7 +196,7 @@ class _MissionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = typeColors(mission.typeService);
+    final type = mission.typeServiceEnum.couleurs;
     final annulee = mission.statutEnum == MissionStatut.annule;
 
     return GestureDetector(
@@ -249,7 +235,7 @@ class _MissionTile extends StatelessWidget {
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
-                      color: type.text,
+                      color: type.fg,
                     ),
                   ),
                 ),

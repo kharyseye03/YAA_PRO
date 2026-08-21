@@ -89,7 +89,7 @@ class HistoryMission {
       commissionYaa: (json['commissionYaa'] as num?)?.toDouble() ?? 0,
       gainLivreur: (json['gainLivreur'] as num?)?.toDouble() ?? 0,
       bonus: (json['bonus'] as num?)?.toDouble() ?? 0,
-      devise: json['devise'] as String? ?? 'FCFA',
+      devise: json['devise'] as String? ?? 'GNF',
       statut: json['statut'] as String? ?? '',
       date: json['date'] != null
           ? DateTime.tryParse(json['date'] as String)

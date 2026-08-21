@@ -8,6 +8,7 @@ import '../../config/api/api_config.dart';
 import '../../model/auth/auth_response.dart';
 import '../../model/driver/driver_detail.dart';
 import '../../model/gains/gains_summary.dart';
+import '../../model/order/commande_produit.dart';
 import '../../model/order/history_mission.dart';
 import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
@@ -108,7 +109,7 @@ class ApiService {
       if (response.statusCode == 401 || response.statusCode == 400) {
         throw Exception('Identifiants incorrects.');
       }
-      throw Exception('Erreur serveur (${response.statusCode}).');
+      throw Exception('Connexion impossible. Réessayez dans un instant.');
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -192,7 +193,7 @@ class ApiService {
         return;
       }
       throw Exception(_errorMessage(
-          response, 'Erreur lors de l\'inscription (${response.statusCode}).'));
+          response, 'Erreur lors de l\'inscription.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -257,7 +258,7 @@ class ApiService {
         return;
       }
       throw Exception(_errorMessage(
-          response, 'Erreur lors de l\'envoi du code (${response.statusCode}).'));
+          response, 'Erreur lors de l\'envoi du code.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -279,7 +280,7 @@ class ApiService {
         return;
       }
       throw Exception(_errorMessage(
-          response, 'Impossible de renvoyer le code (${response.statusCode}).'));
+          response, 'Impossible de renvoyer le code.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -375,7 +376,7 @@ class ApiService {
         return missions;
       }
       throw Exception(
-          'Impossible de charger les commandes (${response.statusCode}).');
+          'Impossible de charger les commandes.');
     } on http.ClientException catch (e) {
       debugPrint('❌ ClientException → $e');
       throw Exception(
@@ -405,10 +406,91 @@ class ApiService {
         throw Exception('Mission introuvable.');
       }
       throw Exception(_errorMessage(
-          response, 'Impossible de charger la mission (${response.statusCode}).'));
+          response, 'Impossible de charger la mission.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  /// Publie la position courante du livreur.
+  ///
+  /// Appelée en boucle pendant une mission : elle ne lève jamais et ne
+  /// bloque rien. Une position perdue n'a aucune importance, la
+  /// suivante arrive dans quinze secondes — et faire remonter l'erreur
+  /// jusqu'à l'écran ferait clignoter des messages pendant que le
+  /// livreur conduit.
+  Future<bool> updateDriverPosition({
+    required double latitude,
+    required double longitude,
+    String adresse = '',
+  }) async {
+    final url = ApiConfig.getUrl(ApiConfig.setDriverPositionEndpoint);
+    final payload = jsonEncode({
+      'adresse': adresse,
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+    try {
+      final response = await _authed((token) => http.put(
+            Uri.parse(url),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: payload,
+          ));
+
+      final ok = response.statusCode == 200 || response.statusCode == 201;
+      debugPrint(ok
+          ? '📍 Position publiée ($latitude, $longitude)'
+          : '📍 Publication refusée (${response.statusCode})\n'
+              '   PUT $url\n'
+              '   envoyé  : $payload\n'
+              '   reçu    : ${response.body}');
+      return ok;
+    } catch (e) {
+      debugPrint('📍 Publication impossible → $e');
+      return false;
+    }
+  }
+
+  /// Articles de la commande à récupérer chez le commerçant.
+  ///
+  /// Renvoie null plutôt que de lever : ce bloc est un confort
+  /// d'affichage, il ne doit jamais empêcher le coursier de mener sa
+  /// mission si l'endpoint est indisponible ou interdit à son rôle.
+  Future<CommandeStructureDetail?> getCommandeStructureDetail(
+      int commandeStructureId) async {
+    final url = ApiConfig.getUrl(
+        ApiConfig.commandeStructureDetailEndpoint(commandeStructureId));
+    try {
+      debugPrint('🌐 GET $url');
+      final response = await _authed((token) => http.get(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          ));
+      debugPrint('📡 Status → ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        // Contrairement au reste de l'API, cet endpoint renvoie le DTO
+        // directement, sans enveloppe `ApiResponse`. On accepte les
+        // deux formes plutôt que de dépendre de celle du moment.
+        final data = body['data'] is Map<String, dynamic>
+            ? body['data'] as Map<String, dynamic>
+            : body;
+        final detail = CommandeStructureDetail.fromJson(data);
+        debugPrint('🛍 ${detail.produits.length} article(s) reçus');
+        return detail;
+      }
+      debugPrint('⚠️ Articles de la commande indisponibles '
+          '(${response.statusCode}) — bloc masqué. '
+          'Corps : ${response.body}');
+      return null;
+    } catch (e) {
+      debugPrint('⚠️ Articles de la commande → $e');
+      return null;
     }
   }
 
@@ -437,7 +519,7 @@ class ApiService {
         if (data is Map<String, dynamic>) {
           return Mission.fromJson(data);
         }
-        throw Exception('Réponse inattendue du serveur.');
+        throw Exception('Une erreur est survenue. Réessayez.');
       }
       if (response.statusCode == 401) {
         throw Exception('Session expirée. Reconnectez-vous.');
@@ -446,7 +528,7 @@ class ApiService {
         throw Exception('Cette mission a déjà été acceptée.');
       }
       throw Exception(_errorMessage(
-          response, 'Impossible d\'accepter la mission (${response.statusCode}).'));
+          response, 'Impossible d\'accepter la mission.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -486,10 +568,10 @@ class ApiService {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         final data = body['data'];
         if (data is Map<String, dynamic>) return Mission.fromJson(data);
-        throw Exception('Réponse inattendue du serveur.');
+        throw Exception('Une erreur est survenue. Réessayez.');
       }
       throw Exception(
-          _errorMessage(response, '$errorLabel (${response.statusCode}).'));
+          _errorMessage(response, '$errorLabel.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -515,7 +597,7 @@ class ApiService {
             .toList();
       }
       throw Exception(_errorMessage(response,
-          'Impossible de charger l\'historique (${response.statusCode}).'));
+          'Impossible de charger l\'historique.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -556,7 +638,7 @@ class ApiService {
         return GainsSummary.empty;
       }
       throw Exception(_errorMessage(
-          response, 'Impossible de charger vos gains (${response.statusCode}).'));
+          response, 'Impossible de charger vos gains.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -601,7 +683,7 @@ class ApiService {
       final streamed = await request.send().timeout(
             const Duration(seconds: ApiConfig.connectionTimeout),
             onTimeout: () =>
-                throw TimeoutException('Le serveur ne répond pas.'),
+                throw TimeoutException('Délai dépassé. Réessayez.'),
           );
       final response = await http.Response.fromStream(streamed);
 

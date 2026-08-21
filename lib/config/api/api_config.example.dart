@@ -18,9 +18,23 @@ class ApiConfig {
   static const String driverDetailEndpoint = '/registrations/detail';
   static const String updateProfileEndpoint = '/registrations/update';
 
+  /// Position courante du livreur, publiée pendant une mission pour
+  /// que le client puisse le suivre sur sa carte.
+  static const String setDriverPositionEndpoint =
+      '/registrations/set-adresse-livreur';
+
   // ── Endpoints Commandes ───────────────────────────────────
   static const String availableOrdersEndpoint =
       '/commandes-clients-livreurs/livraison';
+
+  /// Articles de la commande passée chez le commerçant.
+  ///
+  /// Variante coursier : `/commandes-structures/detail` existe aussi
+  /// mais s'adresse au client et plante pour un livreur.
+  /// [id] est le `commandeStructureId` porté par la mission, pas l'id
+  /// de la mission elle-même.
+  static String commandeStructureDetailEndpoint(int id) =>
+      '/commandes-livreurs/detail?id=$id';
 
   // ── Timeouts ──────────────────────────────────────────────
   static const int connectionTimeout = 30;

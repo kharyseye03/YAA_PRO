@@ -1,4 +1,5 @@
 import '../order/mission_statut.dart';
+import '../order/type_service.dart';
 
 /// Une mission terminée qui a rapporté au livreur.
 class MissionGain {
@@ -28,14 +29,16 @@ class MissionGain {
     this.dateHeureMission,
   });
 
-  bool get isLivraison => typeService.toUpperCase() == 'LIVRAISON';
+  TypeService get typeServiceEnum => TypeService.from(typeService);
   MissionStatut get statutEnum => MissionStatut.from(statut);
 
-  /// « Livraison » / « Course »
-  String get typeLabel => typeService.isEmpty
-      ? ''
-      : typeService[0].toUpperCase() +
-          typeService.substring(1).toLowerCase();
+  /// Transport d'un objet, par opposition au transport d'une personne.
+  bool get isLivraison => !typeServiceEnum.transportePersonne;
+
+  /// « Livraison », « Course », « Commande » — via le mapping partagé,
+  /// et non par une mise en forme de la valeur brute : « Commande »
+  /// n'a rien à voir avec « Livraison_commande ».
+  String get typeLabel => typeServiceEnum.label;
 
   String get gainFormate => formatMontant(gain);
 
@@ -49,7 +52,7 @@ class MissionGain {
       adresseArrivee: json['adresseArrivee'] as String? ?? '',
       heure: json['heure'] as String? ?? '',
       gain: (json['gain'] as num?)?.toDouble() ?? 0,
-      devise: json['devise'] as String? ?? 'FCFA',
+      devise: json['devise'] as String? ?? 'GNF',
       dateMission: json['dateMission'] != null
           ? DateTime.tryParse(json['dateMission'] as String)
           : null,
@@ -79,7 +82,7 @@ class GainsSummary {
   static const empty = GainsSummary(
     gainsAujourdhui: 0,
     totalGain: 0,
-    devise: 'FCFA',
+    devise: 'GNF',
     nombreMissions: 0,
     missions: [],
   );
@@ -91,7 +94,7 @@ class GainsSummary {
     return GainsSummary(
       gainsAujourdhui: (json['gainsAujourdhui'] as num?)?.toDouble() ?? 0,
       totalGain: (json['totalGain'] as num?)?.toDouble() ?? 0,
-      devise: json['devise'] as String? ?? 'FCFA',
+      devise: json['devise'] as String? ?? 'GNF',
       nombreMissions: (json['nombreMissions'] as num?)?.toInt() ?? 0,
       missions: (json['missions'] as List<dynamic>? ?? [])
           .map((e) => MissionGain.fromJson(e as Map<String, dynamic>))

@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/type_service_ui.dart';
 import '../../core/utils/app_router.dart';
 import '../../model/order/mission.dart';
 import '../home/providers/location_provider.dart';
@@ -288,20 +289,6 @@ class _OrderCard extends ConsumerStatefulWidget {
 class _OrderCardState extends ConsumerState<_OrderCard> {
   bool _isAccepting = false;
 
-  /// Couleurs du badge selon le type de service
-  static ({Color bg, Color text}) _catColors(String type) =>
-      switch (type.toUpperCase()) {
-        'LIVRAISON' => (
-            bg: AppColors.catRestaurantLight,
-            text: AppColors.catRestaurant
-          ),
-        'COURSE' => (bg: AppColors.infoLight, text: AppColors.info),
-        'LIVRAISON_COMMANDE' => (
-            bg: AppColors.catBoutiqueLight,
-            text: AppColors.catBoutique
-          ),
-        _ => (bg: AppColors.primarySurface, text: AppColors.primary),
-      };
 
   Future<void> _onAccept() async {
     setState(() => _isAccepting = true);
@@ -312,7 +299,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final catColor = _catColors(order.typeService);
+    final catColor = order.typeServiceEnum.couleurs;
     final anciennete = order.ancienneteLabel;
     // Distance jusqu'au point de récupération (≠ longueur du trajet)
     final pickupDistance = distanceToPickupLabel(
@@ -381,7 +368,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                       fontFamily: 'Archivo',
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
-                      color: catColor.text,
+                      color: catColor.fg,
                     ),
                   ),
                 ),

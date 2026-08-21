@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:remixicon/remixicon.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/auto_refresh.dart';
+import '../auth/providers/driver_provider.dart';
 import '../delivery/delivery_screen.dart';
 import '../delivery/providers/active_mission_provider.dart';
 import '../home/home_screen.dart';
+import '../home/providers/location_provider.dart';
 import '../orders/orders_screen.dart';
 import '../orders/providers/orders_provider.dart';
 import '../gains/gains_screen.dart';
+import '../gains/providers/gains_provider.dart';
 import '../profile/profile_screen.dart';
 
 /// Provider global pour l'index du tab actif
@@ -21,7 +25,8 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell>
+    with AutoRefreshMixin {
   static const List<Widget> _screens = [
     HomeScreen(),
     OrdersScreen(),
@@ -29,8 +34,54 @@ class _MainShellState extends ConsumerState<MainShell> {
     ProfileScreen(),
   ];
 
+  /// Les commandes disponibles apparaissent sans action du livreur :
+  /// elles sont rechargées en continu depuis le shell, qui survit aux
+  /// changements d'onglet.
+  @override
+  List<ProviderOrFamily> get autoRefreshTargets => [
+        allOrdersProvider,
+        availableOrdersProvider,
+      ];
+
+  /// Données rechargées en arrivant sur un onglet, pour ne jamais
+  /// ouvrir un écran sur un affichage périmé.
+  static final Map<int, List<ProviderOrFamily>> _onEnter = {
+    0: [allOrdersProvider],
+    1: [allOrdersProvider, availableOrdersProvider],
+    2: [gainsProvider],
+    3: [driverDetailProvider],
+  };
+
+  /// Les filtres sont un choix ponctuel, pas une préférence : chaque
+  /// onglet se rouvre sur sa vue complète. Sans ça, le livreur
+  /// retrouve un filtre posé la veille et ne comprend pas pourquoi sa
+  /// liste est vide.
+  void _resetFiltres(int index) {
+    switch (index) {
+      case 1:
+        ref.read(orderFilterProvider.notifier).state = OrderFilter.toutes;
+        ref.read(nearRadiusProvider.notifier).state =
+            kNearRadiusOptions.first;
+      case 2:
+        ref.read(gainsFilterProvider.notifier).state = const GainsFilter();
+    }
+  }
+
+  void _onTabTap(int index) {
+    _resetFiltres(index);
+    for (final provider in _onEnter[index] ?? const <ProviderOrFamily>[]) {
+      ref.invalidate(provider);
+    }
+    ref.read(shellIndexProvider.notifier).state = index;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Publication de la position pendant une mission. Observé ici et
+    // non dans l'écran de livraison : le shell survit à tout, alors
+    // qu'un écran peut être démonté et couperait le suivi.
+    ref.watch(positionPublishingProvider);
+
     // Mission en cours : l'app bascule entièrement dessus
     if (ref.watch(activeMissionIdProvider) != null) {
       return const DeliveryScreen();
@@ -50,7 +101,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       bottomNavigationBar: _ProBottomNav(
         currentIndex: currentIndex,
         ordersBadge: ordersCount > 0 ? '$ordersCount' : null,
-        onTap: (i) => ref.read(shellIndexProvider.notifier).state = i,
+        onTap: _onTabTap,
       ),
     );
   }
