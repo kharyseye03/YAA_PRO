@@ -8,6 +8,7 @@ import '../auth/providers/driver_provider.dart';
 import '../delivery/delivery_screen.dart';
 import '../delivery/providers/active_mission_provider.dart';
 import '../home/home_screen.dart';
+import '../home/providers/location_provider.dart';
 import '../orders/orders_screen.dart';
 import '../orders/providers/orders_provider.dart';
 import '../gains/gains_screen.dart';
@@ -76,6 +77,11 @@ class _MainShellState extends ConsumerState<MainShell>
 
   @override
   Widget build(BuildContext context) {
+    // Publication de la position pendant une mission. Observé ici et
+    // non dans l'écran de livraison : le shell survit à tout, alors
+    // qu'un écran peut être démonté et couperait le suivi.
+    ref.watch(positionPublishingProvider);
+
     // Mission en cours : l'app bascule entièrement dessus
     if (ref.watch(activeMissionIdProvider) != null) {
       return const DeliveryScreen();

@@ -413,6 +413,48 @@ class ApiService {
     }
   }
 
+  /// Publie la position courante du livreur.
+  ///
+  /// Appelée en boucle pendant une mission : elle ne lève jamais et ne
+  /// bloque rien. Une position perdue n'a aucune importance, la
+  /// suivante arrive dans quinze secondes — et faire remonter l'erreur
+  /// jusqu'à l'écran ferait clignoter des messages pendant que le
+  /// livreur conduit.
+  Future<bool> updateDriverPosition({
+    required double latitude,
+    required double longitude,
+    String adresse = '',
+  }) async {
+    final url = ApiConfig.getUrl(ApiConfig.setDriverPositionEndpoint);
+    final payload = jsonEncode({
+      'adresse': adresse,
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+    try {
+      final response = await _authed((token) => http.put(
+            Uri.parse(url),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: payload,
+          ));
+
+      final ok = response.statusCode == 200 || response.statusCode == 201;
+      debugPrint(ok
+          ? '📍 Position publiée ($latitude, $longitude)'
+          : '📍 Publication refusée (${response.statusCode})\n'
+              '   PUT $url\n'
+              '   envoyé  : $payload\n'
+              '   reçu    : ${response.body}');
+      return ok;
+    } catch (e) {
+      debugPrint('📍 Publication impossible → $e');
+      return false;
+    }
+  }
+
   /// Articles de la commande à récupérer chez le commerçant.
   ///
   /// Renvoie null plutôt que de lever : ce bloc est un confort

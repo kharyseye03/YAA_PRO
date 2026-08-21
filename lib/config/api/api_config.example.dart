@@ -18,6 +18,11 @@ class ApiConfig {
   static const String driverDetailEndpoint = '/registrations/detail';
   static const String updateProfileEndpoint = '/registrations/update';
 
+  /// Position courante du livreur, publiée pendant une mission pour
+  /// que le client puisse le suivre sur sa carte.
+  static const String setDriverPositionEndpoint =
+      '/registrations/set-adresse-livreur';
+
   // ── Endpoints Commandes ───────────────────────────────────
   static const String availableOrdersEndpoint =
       '/commandes-clients-livreurs/livraison';
