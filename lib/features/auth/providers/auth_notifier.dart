@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/jwt.dart';
+import '../../../model/auth/auth_response.dart';
 import '../../../service/api/api_service.dart';
 import '../../../service/storage/token_storage.dart';
 import 'auth_state.dart';
@@ -44,6 +45,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Renouvelle le token en tolérant un réseau pas encore prêt.
+  ///
+  /// L'app démarre en moins d'une seconde : au déverrouillage du
+  /// téléphone, le Wi-Fi ou la 4G n'est souvent pas encore rétabli
+  /// quand cet appel part. Trois tentatives espacées suffisent à
+  /// couvrir ce décalage, au lieu de renvoyer le livreur sur l'écran
+  /// de connexion alors que sa session est parfaitement valable.
+  ///
+  /// Un refus explicite du serveur ([SessionRefusee]) n'est jamais
+  /// retenté : il ne s'améliorera pas.
+  Future<AuthResponse> _refreshAvecReprises(String refresh) async {
+    const attentes = [
+      Duration(milliseconds: 600),
+      Duration(milliseconds: 1500),
+    ];
+    for (var essai = 0;; essai++) {
+      try {
+        return await _api.refreshToken(refreshToken: refresh);
+      } on SessionRefusee {
+        rethrow;
+      } catch (e) {
+        if (essai >= attentes.length) rethrow;
+        debugPrint('🔄 Renouvellement échoué, nouvelle tentative '
+            'dans ${attentes[essai].inMilliseconds} ms → $e');
+        await Future.delayed(attentes[essai]);
+      }
+    }
+  }
+
   /// Restaure la session au démarrage (splash) : token encore
   /// valide ou refresh, sinon retour au parcours de connexion.
   Future<bool> tryAutoLogin() async {
@@ -60,7 +90,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final refresh = await TokenStorage.instance.getRefreshToken();
       if (refresh == null) return false;
-      final auth = await _api.refreshToken(refreshToken: refresh);
+      final auth = await _refreshAvecReprises(refresh);
 
       // Le rôle a pu être retiré depuis la dernière connexion
       if (!estLivreur(auth.accessToken)) {
@@ -71,8 +101,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await TokenStorage.instance.saveTokens(auth);
       state = state.copyWith(isAuthenticated: true);
       return true;
-    } catch (_) {
+    } on SessionRefusee {
+      // Le serveur a refusé le refresh token : la session est bien
+      // perdue, on nettoie et le livreur devra se reconnecter.
       await TokenStorage.instance.clear();
+      return false;
+    } catch (e) {
+      // Tout le reste — réseau absent, serveur injoignable, délai
+      // dépassé — est passager. On garde les tokens : l'app démarre
+      // désormais en moins d'une seconde, souvent avant que le Wi-Fi
+      // ne soit revenu, et les effacer ici obligeait le livreur à
+      // ressaisir son mot de passe à chaque réouverture.
+      debugPrint('🔒 Reconnexion automatique reportée → $e');
       return false;
     }
   }

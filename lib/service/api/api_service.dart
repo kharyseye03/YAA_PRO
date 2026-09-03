@@ -13,6 +13,21 @@ import '../../model/order/history_mission.dart';
 import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
 
+/// Le serveur a explicitement refusé la session : refresh token révoqué,
+/// expiré, ou compte désactivé.
+///
+/// À distinguer d'une panne réseau : dans ce cas seul il faut effacer
+/// les tokens locaux. Une connexion momentanément absente ne doit
+/// jamais déconnecter le livreur — c'est ce qui l'obligeait à ressaisir
+/// son mot de passe à chaque réouverture de l'app.
+class SessionRefusee implements Exception {
+  final String message;
+  const SessionRefusee([this.message = 'Session expirée.']);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   // ── Session ───────────────────────────────────────────────
 
@@ -132,8 +147,13 @@ class ApiService {
         return AuthResponse.fromJson(
             jsonDecode(response.body) as Map<String, dynamic>);
       }
-      throw Exception('Session expirée.');
+      // Keycloak refuse le refresh token : il est révoqué ou périmé.
+      // C'est le seul cas où la session est réellement perdue.
+      debugPrint('🔒 Refresh refusé (${response.statusCode}) : '
+          '${response.body}');
+      throw const SessionRefusee();
     } on http.ClientException {
+      // Réseau indisponible : la session reste valable, on réessaiera.
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
     }
