@@ -126,7 +126,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                     Row(
                       children: [
                         Text(
-                          'Solde disponible',
+                          'Total de vos gains',
                           style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.white.withValues(alpha: 0.65),
                           ),
@@ -228,34 +228,6 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                           ),
                         ),
                       ],
-                    ),
-                    SizedBox(height: AppDimens.xl.h),
-
-                    // Bouton Charger
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {},
-                        icon: Icon(LucideIcons.wallet, size: 16.r),
-                        label: Text(
-                          'Charger',
-                          style: TextStyle(
-                            fontFamily: 'Archivo',
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.white,
-                          foregroundColor: AppColors.dark,
-                          minimumSize: Size(double.infinity, 48.h),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppDimens.radiusMd),
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),
