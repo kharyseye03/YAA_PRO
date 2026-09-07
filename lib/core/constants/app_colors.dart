@@ -2,11 +2,12 @@ import 'dart:ui';
 
 abstract final class AppColors {
   // ── Primary ──────────────────────────────────────────────
-  static const Color primary = Color(0xFF1A1A2E);
-  static const Color primaryLight = Color(0xFF2A2A45);
-  static const Color primaryDark = Color(0xFF121220);
-  static const Color primarySurface = Color(0xFFF0F1F7);
-  //static const Color primarySurface = Color(0xFFE8EEFE);
+  // Bleu marine du logo YAA. Les nuances sont dérivées de cette
+  // teinte : même bleu, luminosité différente.
+  static const Color primary = Color(0xFF001554);
+  static const Color primaryLight = Color(0xFF122A6E);
+  static const Color primaryDark = Color(0xFF000D33);
+  static const Color primarySurface = Color(0xFFEBEEF7);
 
   // ── Secondary / Accent ───────────────────────────────────
   static const Color secondary = Color(0xFFFF6B35);
@@ -15,7 +16,10 @@ abstract final class AppColors {
 
   // ── Neutrals ─────────────────────────────────────────────
   static const Color black = Color(0xFF000000);
-  static const Color dark = Color(0xFF1A1A2E);
+
+  /// Même valeur que [primary] : le bleu de la marque sert aussi de
+  /// « noir » à l'app, aucun texte n'est en noir pur.
+  static const Color dark = Color(0xFF001554);
   static const Color grey900 = Color(0xFF212121);
   static const Color grey800 = Color(0xFF424242);
   static const Color grey700 = Color(0xFF616161);

@@ -304,7 +304,7 @@ class _Step1 extends StatelessWidget {
                 style: AppTextStyles.h2,
                 children: [
                   TextSpan(
-                    text: 'compte livreur',
+                    text: 'compte pro',
                     style: AppTextStyles.h2.copyWith(color: AppColors.secondary),
                   ),
                 ],

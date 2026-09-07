@@ -21,7 +21,7 @@ class OnboardingScreen extends StatelessWidget {
         children: [
           // ── Image de fond plein écran ──────────────────────
           Image.asset(
-            'assets/images/ob2.jpeg',
+            'assets/images/ob1.png',
             fit: BoxFit.cover,
           ),
 

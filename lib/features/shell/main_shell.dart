@@ -127,7 +127,7 @@ class _ProBottomNav extends StatelessWidget {
       child: Container(
         height: 64.h,
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(40.r),
           boxShadow: [
             BoxShadow(

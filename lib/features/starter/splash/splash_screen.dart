@@ -1,51 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/constants.dart';
 import '../../../core/utils/app_router.dart';
 import '../../auth/providers/auth_notifier.dart';
 
+/// Premier écran de l'app, pendant la restauration de session.
+///
+/// Il reproduit **à l'identique** la fenêtre de lancement affichée par
+/// Android — même fond, même logo, même taille, même position. Aucune
+/// animation, aucun élément décoratif : la moindre différence entre les
+/// deux se lit comme un changement d'écran, et donne l'impression que
+/// l'app en affiche un de trop avant de démarrer.
+///
+/// Le pendant natif de cet écran est `drawable/launch_background.xml`
+/// et les `launch_logo.png` de `drawable-*dpi/`. **Toute modification
+/// ici doit y être répercutée**, sinon la couture redevient visible.
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
+
+  /// Largeur du logo, partagée avec les `launch_logo.png` natifs.
+  ///
+  /// 121 dp n'est pas un choix esthétique mais une **mesure** : c'est
+  /// la taille à laquelle Android 12 affiche l'icône sur son écran de
+  /// lancement, une fois le logo poussé au bord de la zone sûre de
+  /// l'icône adaptative. Le système impose cette taille et ne permet
+  /// pas de l'agrandir ; c'est donc au splash de s'y conformer, sinon
+  /// le logo change brutalement de taille entre les deux écrans.
+  ///
+  /// Relever la mesure après toute modification de `foreground.png` :
+  /// capture d'écran pendant le lancement, largeur du logo en pixels,
+  /// divisée par la densité de l'appareil.
+  static const double logoWidth = 121;
 
   @override
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _fadeAnim;
-  late final Animation<double> _scaleAnim;
-
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
-    _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
-
-    _controller.forward();
     _navigate();
   }
 
   Future<void> _navigate() async {
-    // Restauration de session en parallèle de l'animation.
-    //
-    // Le délai plancher couvre l'animation d'entrée (1200 ms) sans
-    // aller au-delà : il s'ajoute au temps de démarrage du moteur, que
-    // l'utilisateur a déjà attendu. Trois secondes de plus donnaient
-    // une app qui semble mettre cinq secondes à s'ouvrir.
+    // Le délai plancher n'existe que pour éviter un clignotement si la
+    // session se restaure instantanément. Il s'ajoute au démarrage du
+    // moteur, que l'utilisateur a déjà attendu : on le garde court.
     final results = await Future.wait([
       ref.read(authProvider.notifier).tryAutoLogin(),
-      Future.delayed(const Duration(milliseconds: 1200)),
+      Future.delayed(const Duration(milliseconds: 600)),
     ]);
     if (!mounted) return;
     final loggedIn = results[0] as bool;
@@ -53,103 +59,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: Stack(
-        children: [
-          // ── Coin haut-gauche : bracket primary ──────────────
-          Positioned(
-            top: 52,
-            left: 36,
-            child: SizedBox(
-              width: 36,
-              height: 36,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                        color: AppColors.primary.withValues(alpha: 0.18),
-                        width: 2),
-                    left: BorderSide(
-                        color: AppColors.primary.withValues(alpha: 0.18),
-                        width: 2),
-                  ),
-                ),
-              ),
-            ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // Le reste de l'app est clair, ses icônes système sont donc
+      // sombres. Sur ce fond bleu il faut les inverser.
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: const Scaffold(
+        backgroundColor: AppColors.primary,
+        body: Center(
+          child: Image(
+            image: AssetImage('assets/images/logo_white.png'),
+            width: SplashScreen.logoWidth,
           ),
-          // ── Coin bas-droite : bracket secondary ─────────────
-          Positioned(
-            bottom: 52,
-            right: 36,
-            child: SizedBox(
-              width: 36,
-              height: 36,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                        color: AppColors.secondary.withValues(alpha: 0.30),
-                        width: 2),
-                    right: BorderSide(
-                        color: AppColors.secondary.withValues(alpha: 0.30),
-                        width: 2),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // ── Logo centré avec animation ───────────────────────
-          Center(
-            child: FadeTransition(
-              opacity: _fadeAnim,
-              child: ScaleTransition(
-                scale: _scaleAnim,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset(
-                      'assets/images/logo-pro3.jpeg',
-                      width: 300,
-                      // Décodé à ~2× la taille d'affichage plutôt qu'à
-                      // ses 2752 px d'origine : c'est le tout premier
-                      // écran, autant ne pas le faire attendre.
-                      cacheWidth: 600,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // ── Barre de chargement fine en bas ─────────────────
-          Positioned(
-            bottom: 56,
-            left: 0,
-            right: 0,
-            child: FadeTransition(
-              opacity: _fadeAnim,
-              child: Center(
-                child: SizedBox(
-                  width: 48,
-                  child: LinearProgressIndicator(
-                    minHeight: 2,
-                    backgroundColor:
-                        AppColors.primary.withValues(alpha: 0.10),
-                    color: AppColors.primary.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

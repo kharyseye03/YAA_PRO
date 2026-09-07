@@ -6,7 +6,7 @@
      Fond blanc et logo centré à la même taille que le splash Flutter,
      déclinés par densité dans drawable-*dpi/launch_logo.png. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+    <item android:drawable="@color/ic_launcher_background" />
 
     <item>
         <bitmap

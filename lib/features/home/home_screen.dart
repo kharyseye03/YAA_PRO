@@ -220,7 +220,7 @@ class _HomeHeader extends ConsumerWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF1A1A2E),
+        color: AppColors.primary,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),

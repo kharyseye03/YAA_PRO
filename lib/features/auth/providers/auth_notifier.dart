@@ -29,8 +29,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
             '${realmRolesOf(auth.accessToken)}');
         state = state.copyWith(
           isLoading: false,
-          error: 'Ce compte n\'est pas un compte livreur. '
-              'Utilisez l\'application YAA pour commander une livraison.',
+          // Même message qu'un mot de passe erroné, volontairement :
+          // distinguer les deux cas reviendrait à confirmer qu'un
+          // compte existe. La cause réelle reste dans le log ci-dessus,
+          // pour nous.
+          error: 'Identifiants incorrects.',
         );
         return false;
       }

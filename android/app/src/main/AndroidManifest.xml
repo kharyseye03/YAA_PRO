@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
-        android:label="yaa_pro"
+        android:label="YAA PRO"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         >
@@ -29,6 +29,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Impeller, le moteur de rendu par défaut de Flutter, prépare
+             ses shaders au lancement. Sur les GPU MediaTek d'entrée de
+             gamme il échoue sur Vulkan, retombe sur OpenGL ES, et cette
+             préparation bloque le thread principal plusieurs secondes
+             avant le premier écran. Le moteur historique démarre
+             immédiatement. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+
         <!-- Clé API Google Maps -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"

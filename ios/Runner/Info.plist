@@ -4,8 +4,11 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- Nom affiché sous l'icône, sur l'écran d'accueil et dans les
+	     réglages. À ne pas confondre avec CFBundleName, qui est le nom
+	     interne du bundle. -->
 	<key>CFBundleDisplayName</key>
-	<string>Yaa Pro</string>
+	<string>YAA PRO</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
