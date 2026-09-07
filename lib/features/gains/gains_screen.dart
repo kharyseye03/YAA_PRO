@@ -167,7 +167,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                           duration: const Duration(milliseconds: 200),
                           child: _balanceVisible
                               ? Text(
-                                  '0',
+                                  summary?.totalFormate ?? '0',
                                   key: const ValueKey('shown'),
                                   style: TextStyle(
                                     fontFamily: 'Archivo',
