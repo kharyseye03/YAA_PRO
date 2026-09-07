@@ -267,10 +267,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       }
       await _resetMapOverlays();
       _arrived = false;
+      // Pas de message : l'écran bascule visiblement sur l'étape 2,
+      // libellés et couleur d'accent compris. Le confirmer par un
+      // bandeau n'apprend rien de plus au livreur.
       ref.invalidate(activeMissionProvider);
-      if (mounted) {
-        _toast('Colis récupéré — direction le point de livraison.');
-      }
     } catch (e) {
       if (mounted) {
         _toast(e.toString().replaceFirst('Exception: ', ''));
@@ -285,17 +285,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     setState(() => _confirmingStep = true);
     try {
       await ref.read(apiServiceProvider).deliverMission(mission.id);
+      // Pas de message de fin : le retour au tableau de bord suffit à
+      // dire que la course est close, et le gain se retrouve dans
+      // l'onglet Gains.
       await _leaveScreen();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Course terminée · +${mission.montantFormate} ${mission.devise}',
-            ),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         _toast(e.toString().replaceFirst('Exception: ', ''));

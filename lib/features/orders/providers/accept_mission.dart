@@ -12,8 +12,8 @@ void refuseMission(WidgetRef ref, int missionId) {
   ref.read(refusedMissionsProvider.notifier).refuse(missionId);
 }
 
-/// Accepte une mission, affiche le retour à l'utilisateur et
-/// rafraîchit la liste des missions disponibles.
+/// Accepte une mission et rafraîchit la liste des missions
+/// disponibles. Seul un échec est signalé à l'utilisateur.
 /// Retourne true si l'acceptation a réussi.
 Future<bool> acceptMission(
   BuildContext context,
@@ -27,12 +27,8 @@ Future<bool> acceptMission(
     await ref.read(activeMissionIdProvider.notifier).start(missionId);
     ref.invalidate(allOrdersProvider);
     ref.invalidate(availableOrdersProvider);
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Mission acceptée ! Rendez-vous au point de départ.'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    // Aucun message de succès : la bascule sur l'écran de mission est
+    // en elle-même la confirmation que l'acceptation a fonctionné.
     return true;
   } catch (e) {
     // La mission a pu être prise par un autre coursier entre-temps
