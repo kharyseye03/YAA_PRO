@@ -6,6 +6,9 @@
         android:label="YAA PRO"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         >
         <activity
             android:name=".MainActivity"
@@ -58,6 +61,26 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+
+        <!-- Depuis Android 11, une app ne voit que les applications
+             qu'elle déclare ici. Sans ces trois entrées, `canLaunchUrl`
+             renvoie false et les boutons semblent cassés alors que le
+             téléphone sait parfaitement ouvrir un numéro ou un mail.
+             tel   : appeler le client, le commerçant, le support
+             mailto: écrire au support
+             https : ouvrir Google Maps en secours du guidage -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

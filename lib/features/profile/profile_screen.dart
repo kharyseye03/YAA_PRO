@@ -33,6 +33,9 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  /// Bloque un second appui pendant l'appel de suppression.
+  bool _suppressionEnCours = false;
+
   /// « 622123456 » → « 622 12 34 56 »
   static String _formatPhone(String raw) {
     final d = raw.replaceAll(RegExp(r'\D'), '');
@@ -127,6 +130,76 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  /// Suppression définitive du compte.
+  ///
+  /// Exigée par Google Play pour toute application permettant de créer
+  /// un compte. La confirmation est volontairement plus lourde que
+  /// celle de la déconnexion : c'est irréversible, et un appui par
+  /// erreur ferait perdre au coursier son historique et ses gains.
+  Future<void> _supprimerCompte(int driverId) async {
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text(
+          'Supprimer votre compte ?',
+          style: AppTextStyles.labelLarge.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.error,
+          ),
+        ),
+        content: Text(
+          'Cette action est définitive. Votre profil, votre véhicule et '
+          'l\'historique de vos courses seront supprimés, et vous ne '
+          'pourrez plus vous connecter avec ce numéro.',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey700),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Annuler',
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.grey600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Supprimer définitivement',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirme != true || !mounted) return;
+
+    setState(() => _suppressionEnCours = true);
+    try {
+      await ref.read(apiServiceProvider).deleteAccount(driverId);
+      if (!mounted) return;
+      // Le compte n'existe plus : on nettoie l'état local exactement
+      // comme à la déconnexion, sinon l'app rouvrirait sur des données
+      // d'un compte effacé.
+      await ref.read(refusedMissionsProvider.notifier).clear();
+      ref.read(shellIndexProvider.notifier).state = 0;
+      await ref.read(authProvider.notifier).logout();
+      if (mounted) context.goNamed(RouteNames.onboarding);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _suppressionEnCours = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Future<void> _logout() async {
@@ -275,7 +348,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
 
-            SizedBox(height: AppDimens.md.h),
+            SizedBox(height: AppDimens.sm.h),
+
+            // ── Suppression du compte ─────────────────────
+            // Discret et sans encadré : c'est une sortie de secours,
+            // pas une action qu'on propose au même niveau que la
+            // déconnexion.
+            if (driver != null)
+              TextButton(
+                onPressed: _suppressionEnCours
+                    ? null
+                    : () => _supprimerCompte(driver.id),
+                child: _suppressionEnCours
+                    ? SizedBox(
+                        height: 16.r,
+                        width: 16.r,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: AppColors.error),
+                      )
+                    : Text(
+                        'Supprimer mon compte',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.error,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.error,
+                        ),
+                      ),
+              ),
+
+            SizedBox(height: AppDimens.sm.h),
 
             Text(
               'YAA PRO · version 1.0.0',

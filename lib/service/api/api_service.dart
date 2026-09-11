@@ -187,9 +187,11 @@ class ApiService {
     required String couleur,
     required String carteGrise,
   }) async {
+    final url = ApiConfig.getUrl(ApiConfig.registerEndpoint);
     try {
+      debugPrint('🌐 POST $url');
       final response = await http.post(
-        Uri.parse(ApiConfig.getUrl(ApiConfig.registerEndpoint)),
+        Uri.parse(url),
         headers: ApiConfig.jsonHeaders,
         body: jsonEncode({
           'firstName': firstName,
@@ -208,6 +210,13 @@ class ApiService {
           'carteGrise': carteGrise,
         }),
       );
+
+      // Le corps est journalisé même en cas de succès : le serveur peut
+      // répondre 200 sans avoir envoyé de code — compte déjà inscrit,
+      // service mail indisponible — et c'est le seul endroit où ça se
+      // voit côté app.
+      debugPrint('📡 Inscription → ${response.statusCode}');
+      debugPrint('📬 Body → ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return;
@@ -295,6 +304,9 @@ class ApiService {
         headers: ApiConfig.jsonHeaders,
         body: jsonEncode({'email': email, 'telephone': telephone}),
       );
+
+      debugPrint('📡 Renvoi du code → ${response.statusCode}');
+      debugPrint('📬 Body → ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return;
@@ -427,6 +439,34 @@ class ApiService {
       }
       throw Exception(_errorMessage(
           response, 'Impossible de charger la mission.'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  /// Supprime définitivement le compte du livreur connecté.
+  ///
+  /// Contrairement au reste des appels, un échec doit remonter jusqu'à
+  /// l'écran : l'utilisateur croirait son compte effacé alors qu'il ne
+  /// l'est pas, et le nettoyage local le déconnecterait sans raison.
+  Future<void> deleteAccount(int driverId) async {
+    final url = ApiConfig.getUrl(ApiConfig.deleteAccountEndpoint(driverId));
+    try {
+      debugPrint('🌐 DELETE $url');
+      final response = await _authed((token) => http.delete(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          ));
+      debugPrint('📡 Status → ${response.statusCode}');
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 202 ||
+          response.statusCode == 204) {
+        return;
+      }
+      throw Exception(_errorMessage(
+          response, 'Impossible de supprimer le compte.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');

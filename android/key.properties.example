@@ -1,0 +1,20 @@
+# ⚠️ MODÈLE — copier vers android/key.properties et remplir.
+#
+# key.properties est gitignoré : il contient les mots de passe qui
+# signent l'application. Ne jamais le committer, ne jamais l'envoyer
+# par messagerie.
+#
+# Générer le keystore (une seule fois, depuis le dossier android/) :
+#
+#   keytool -genkey -v -keystore yaa-pro-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias yaa-pro
+#
+# ⚠️ SAUVEGARDER yaa-pro-release.jks AILLEURS QUE SUR CE PC.
+# Perdre ce fichier ou son mot de passe signifie ne plus jamais
+# pouvoir publier de mise à jour de YAA PRO — Google ne peut pas le
+# régénérer. Un disque externe et un gestionnaire de mots de passe.
+
+storePassword=le_mot_de_passe_du_keystore
+keyPassword=le_mot_de_passe_de_la_cle
+keyAlias=yaa-pro
+storeFile=yaa-pro-release.jks
