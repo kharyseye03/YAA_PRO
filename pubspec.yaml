@@ -2,7 +2,7 @@ name: yaa_pro
 description: "YAA PRO - Application mobile pour les livreurs"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.9.2
@@ -125,3 +125,6 @@ flutter:
     - assets/images/map2.png
     - assets/images/ob2.jpeg
     - assets/images/ob1.png
+    - assets/images/moto.png
+    - assets/images/voiture.png
+    - assets/images/cargo.png

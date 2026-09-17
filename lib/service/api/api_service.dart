@@ -162,10 +162,17 @@ class ApiService {
   // ── Inscription ───────────────────────────────────────────
 
   /// Extrait le message d'erreur du body de réponse si présent.
+  ///
+  /// Sur une erreur 5xx, le message du backend est technique
+  /// (« Erreur interne du serveur »…) : on ne le montre jamais.
   String _errorMessage(http.Response response, String fallback) {
+    if (response.statusCode >= 500) {
+      return 'Une erreur est survenue. Veuillez réessayer dans un instant.';
+    }
     try {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['message'] as String? ?? fallback;
+      final message = data['message'] as String?;
+      return (message == null || message.trim().isEmpty) ? fallback : message;
     } catch (_) {
       return fallback;
     }
@@ -751,15 +758,8 @@ class ApiService {
         return;
       }
 
-      Map<String, dynamic> data = {};
-      if (response.body.isNotEmpty) {
-        try {
-          data = json.decode(response.body) as Map<String, dynamic>;
-        } catch (_) {}
-      }
-      final errorMessage =
-          data['message'] as String? ?? 'Erreur ${response.statusCode}';
-      throw Exception(errorMessage);
+      throw Exception(_errorMessage(
+          response, 'La mise à jour du profil a échoué. Réessayez.'));
     } on SocketException {
       throw Exception('Pas de connexion internet.');
     } on TimeoutException catch (e) {

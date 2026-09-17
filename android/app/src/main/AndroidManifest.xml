@@ -1,7 +1,26 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- Injectée par le SDK Navigation de Google (7.7.0), retirée ici.
+         Elle n'est pas nécessaire au guidage : le SDK tourne dans un
+         service de premier plan (FOREGROUND_SERVICE_LOCATION, conservé),
+         lancé alors que l'app est visible puisque le coursier tape
+         « Démarrer ». Un tel service garde l'accès à la position écran
+         éteint sans cette autorisation — documenté par Google depuis la
+         version 5.4 du SDK.
+
+         La garder imposerait, sur Google Play, une déclaration de
+         localisation en arrière-plan : justification écrite, vidéo, écran
+         d'avertissement dans l'app et revue manuelle souvent refusée.
+
+         Limite assumée : un coursier qui met l'app en arrière-plan sans
+         avoir lancé le guidage cesse d'émettre sa position. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
+        tools:node="remove"/>
     <application
         android:label="YAA PRO"
         android:name="${applicationName}"
