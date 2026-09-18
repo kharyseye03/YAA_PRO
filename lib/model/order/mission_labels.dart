@@ -8,6 +8,10 @@ import 'type_service.dart';
 /// colis » : tout le vocabulaire de l'écran passe par ici pour rester
 /// juste dans les trois cas de figure.
 class MissionLabels {
+  /// Titre court de l'étape, en capitales dans les panneaux :
+  /// « RÉCUPÉRATION », « DÉPOSE »…
+  final String stepTitle;
+
   /// « Étape 1 sur 2 · Récupération »
   final String stepBadge;
 
@@ -24,6 +28,7 @@ class MissionLabels {
   final String arrivalMessage;
 
   const MissionLabels({
+    required this.stepTitle,
     required this.stepBadge,
     required this.addressLabel,
     required this.actionButton,
@@ -39,6 +44,7 @@ class MissionLabels {
       // ── Transport d'une personne ──────────────────────────
       TypeService.course => step2
           ? const MissionLabels(
+              stepTitle: 'DÉPOSE',
               stepBadge: 'Étape 2 sur 2 · Dépose',
               addressLabel: 'Déposer à',
               actionButton: 'Client déposé',
@@ -46,6 +52,7 @@ class MissionLabels {
               arrivalMessage: 'Vous êtes arrivé à destination',
             )
           : const MissionLabels(
+              stepTitle: 'PRISE EN CHARGE',
               stepBadge: 'Étape 1 sur 2 · Prise en charge',
               addressLabel: 'Prendre le client à',
               actionButton: 'Client à bord',
@@ -56,6 +63,7 @@ class MissionLabels {
       // ── Commande chez un commerçant ───────────────────────
       TypeService.livraisonCommande => step2
           ? const MissionLabels(
+              stepTitle: 'LIVRAISON',
               stepBadge: 'Étape 2 sur 2 · Livraison',
               addressLabel: 'Livrer à',
               actionButton: 'J\'ai livré la commande',
@@ -63,6 +71,7 @@ class MissionLabels {
               arrivalMessage: 'Vous êtes arrivé chez le client',
             )
           : MissionLabels(
+              stepTitle: 'RÉCUPÉRATION',
               stepBadge: 'Étape 1 sur 2 · Récupération',
               addressLabel: 'Récupérer chez',
               actionButton: 'J\'ai récupéré la commande',
@@ -80,6 +89,7 @@ class MissionLabels {
       // ── Colis entre particuliers ──────────────────────────
       _ => step2
           ? const MissionLabels(
+              stepTitle: 'LIVRAISON',
               stepBadge: 'Étape 2 sur 2 · Livraison',
               addressLabel: 'Livrer à',
               actionButton: 'J\'ai livré le colis',
@@ -87,6 +97,7 @@ class MissionLabels {
               arrivalMessage: 'Vous êtes arrivé chez le destinataire',
             )
           : const MissionLabels(
+              stepTitle: 'RÉCUPÉRATION',
               stepBadge: 'Étape 1 sur 2 · Récupération',
               addressLabel: 'Récupérer à',
               actionButton: 'J\'ai récupéré le colis',

@@ -8,15 +8,13 @@ import '../../auth/providers/auth_notifier.dart';
 import '../../home/providers/location_provider.dart';
 
 /// Identifiant de la mission en cours du livreur (null s'il n'en a pas).
-/// Restauré depuis le stockage local au lancement de l'app.
+///
+/// La valeur stockée est lue dans `main()`, avant le premier affichage,
+/// et injectée ici. La lire après coup faisait construire l'accueil et
+/// sa carte, puis basculer aussitôt sur la mission : la carte, détruite
+/// avant la fin de son initialisation, fait planter le plugin Google.
 class ActiveMissionIdNotifier extends StateNotifier<int?> {
-  ActiveMissionIdNotifier() : super(null) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    state = await ActiveMissionStorage.instance.get();
-  }
+  ActiveMissionIdNotifier([super.initial]);
 
   Future<void> start(int missionId) async {
     await ActiveMissionStorage.instance.save(missionId);

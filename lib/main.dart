@@ -7,9 +7,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/constants.dart';
 import 'core/utils/app_router.dart';
+import 'features/delivery/providers/active_mission_provider.dart';
+import 'service/storage/active_mission_storage.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Mission en cours lue avant le premier affichage : voir
+  // ActiveMissionIdNotifier. Quelques millisecondes, sous le splash.
+  final activeMissionId = await ActiveMissionStorage.instance.get();
 
   // Contrairement à ce qu'on croit souvent, `debugPrint` n'est PAS
   // supprimé en release : c'est une variable qui pointe sur une
@@ -31,7 +37,13 @@ void main() {
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
   ));
-  runApp(const ProviderScope(child: YaaProApp()));
+  runApp(ProviderScope(
+    overrides: [
+      activeMissionIdProvider
+          .overrideWith((ref) => ActiveMissionIdNotifier(activeMissionId)),
+    ],
+    child: const YaaProApp(),
+  ));
 }
 
 class YaaProApp extends StatelessWidget {

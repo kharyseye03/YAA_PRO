@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
@@ -54,6 +55,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   /// arrive quand on arrête le guidage juste avant de sortir.
   bool _closing = false;
 
+  /// Vérification au démarrage d'un guidage resté actif : aucune vue
+  /// carte n'est construite avant de savoir laquelle afficher.
+  bool _checkingGuidance = true;
+
   final _navService = NavigationService();
   StreamSubscription<OnArrivalEvent>? _arrivalSub;
 
@@ -68,6 +73,26 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
       if (mounted) setState(() => _arrived = true);
     });
     _markerIcons = _loadMarkerIcons();
+    _resumeGuidanceIfRunning();
+  }
+
+  /// Le système peut détruire l'interface pendant que le guidage tourne
+  /// encore en arrière-plan (mémoire faible). Au retour, on reprend la
+  /// vue de guidage au lieu de reconstruire la carte simple : créer puis
+  /// jeter aussitôt une vue carte fait planter le plugin.
+  Future<void> _resumeGuidanceIfRunning() async {
+    var running = false;
+    try {
+      running = await GoogleMapsNavigator.isInitialized() &&
+          await GoogleMapsNavigator.isGuidanceRunning();
+    } catch (e) {
+      debugPrint('Reprise du guidage : $e');
+    }
+    if (!mounted) return;
+    setState(() {
+      _navigating = running;
+      _checkingGuidance = false;
+    });
   }
 
   Future<({ImageDescriptor depart, ImageDescriptor arrivee})>
@@ -343,10 +368,28 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     if (confirmed == true) await _leaveScreen();
   }
 
+  static const _appChannel = MethodChannel('gn.yaa.pro/app');
+
+  /// Le bouton retour ne ferme jamais l'écran de mission : il met l'app
+  /// en arrière-plan, comme le bouton Accueil. Fermer l'activité
+  /// laisserait le guidage parler sans interface, et l'app planterait
+  /// au retour (voir MainActivity.kt).
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _appChannel.invokeMethod<void>('moveToBackground').catchError(
+            (Object e) => debugPrint('Mise en arrière-plan : $e'));
+      },
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     // Sortie en cours : aucune vue carte tant que l'écran vit encore
-    if (_closing) {
+    if (_closing || _checkingGuidance) {
       return const Scaffold(
         backgroundColor: AppColors.scaffold,
         body: Center(
@@ -492,6 +535,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
                     mission: mission,
                     arrived: _arrived,
                     busy: _confirmingStep,
+                    onCall: _call,
                     onStepAction: mission.isPickedUp
                         ? () => _onDelivered(mission)
                         : () => _onPickedUp(mission.id),
@@ -570,27 +614,63 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   }
 }
 
-// ── Barre basse compacte pendant le guidage ───────────────────────
-class _NavigatingPanel extends StatelessWidget {
+// ── Panneau bas pendant le guidage ────────────────────────────────
+// Les infos de l'étape restent visibles jusqu'à la fin de la mission :
+// arrivé chez le commerçant, le livreur doit retrouver qui appeler et
+// quoi récupérer sans quitter le guidage.
+//
+// Replié par défaut pour laisser la carte lisible en roulant : étape,
+// adresse et interlocuteur (avec l'appel) restent affichés. Le détail
+// — adresse complète, instructions, produits — se déplie d'un appui,
+// et s'ouvre tout seul à l'arrivée, quand il sert vraiment.
+class _NavigatingPanel extends StatefulWidget {
   final Mission mission;
   final bool arrived;
   final bool busy;
+  final void Function(String phone) onCall;
   final VoidCallback onStepAction;
 
   const _NavigatingPanel({
     required this.mission,
     required this.arrived,
     required this.busy,
+    required this.onCall,
     required this.onStepAction,
   });
 
   @override
+  State<_NavigatingPanel> createState() => _NavigatingPanelState();
+}
+
+class _NavigatingPanelState extends State<_NavigatingPanel> {
+  late bool _expanded = widget.arrived;
+
+  @override
+  void didUpdateWidget(covariant _NavigatingPanel old) {
+    super.didUpdateWidget(old);
+    if (widget.arrived && !old.arrived) _expanded = true;
+    // Nouvelle étape : on repart replié pour rouler
+    if (widget.mission.isPickedUp != old.mission.isPickedUp) {
+      _expanded = widget.arrived;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final mission = widget.mission;
+    final labels = MissionLabels.of(mission);
+    final accent =
+        mission.isPickedUp ? AppColors.success : AppColors.secondary;
+    final phone = MissionLabels.contactPhoneOf(mission);
+    final aDesProduits =
+        !mission.isPickedUp && mission.commandeStructureId != null;
+    final aDuDetail = mission.instructions.isNotEmpty || aDesProduits;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
         AppDimens.lg.w,
-        AppDimens.lg.h,
+        AppDimens.md.h,
         AppDimens.lg.w,
         MediaQuery.of(context).padding.bottom + AppDimens.lg.h,
       ),
@@ -607,10 +687,158 @@ class _NavigatingPanel extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // En-tête : étape, adresse et montant, toujours visibles.
+          // Le montant est ce que le livreur regarde en premier.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(top: 2.h),
+                child: Icon(LucideIcons.mapPin, size: 18.r, color: accent),
+              ),
+              SizedBox(width: AppDimens.sm.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      labels.stepTitle,
+                      style: TextStyle(
+                        fontFamily: 'Archivo',
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w800,
+                        color: accent,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      mission.currentAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.labelSmall
+                          .copyWith(color: AppColors.dark),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: AppDimens.md.w),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    mission.montantFormate,
+                    style: TextStyle(
+                      fontFamily: 'Archivo',
+                      fontSize: 26.sp,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.dark,
+                      height: 1,
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  Text(
+                    mission.devise,
+                    style: AppTextStyles.labelSmall
+                        .copyWith(color: AppColors.grey600),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Interlocuteur : toujours visible, l'appel reste à un pouce
+          if (phone != null && phone.isNotEmpty) ...[
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: AppDimens.md.h),
+              child: Divider(height: 1, color: AppColors.grey200),
+            ),
+            _ContactBlock(
+              label: labels.contactLabel,
+              name: MissionLabels.contactNameOf(mission),
+              phone: _MissionPanel.formatPhone(phone),
+              accent: accent,
+              onCall: () => widget.onCall(phone),
+            ),
+          ],
+
+          // Bouton de détail : seulement s'il y a quelque chose à montrer.
+          // Une course sans instructions n'en a pas — un bouton qui ne
+          // déplie rien ferait croire à une panne.
+          if (aDuDetail)
+            Padding(
+              padding: EdgeInsets.only(top: AppDimens.sm.h),
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    padding: EdgeInsets.symmetric(
+                        horizontal: AppDimens.md.w, vertical: 4.h),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: Icon(
+                    _expanded ? LucideIcons.chevronDown : LucideIcons.chevronUp,
+                    size: 16.r,
+                  ),
+                  label: Text(
+                    _expanded
+                        ? 'Masquer les détails'
+                        : aDesProduits
+                            ? 'Voir les produits et instructions'
+                            : 'Voir les instructions',
+                    style: AppTextStyles.labelSmall
+                        .copyWith(color: AppColors.primary),
+                  ),
+                ),
+              ),
+            ),
+
+          // Détail dépliable, défilant sur place s'il est long
+          if (_expanded && aDuDetail)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.35,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (mission.instructions.isNotEmpty) ...[
+                      SizedBox(height: AppDimens.md.h),
+                      Container(
+                        padding: EdgeInsets.all(AppDimens.md.r),
+                        decoration: BoxDecoration(
+                          color: AppColors.warningLight,
+                          borderRadius:
+                              BorderRadius.circular(AppDimens.radiusMd),
+                        ),
+                        child: Text(
+                          mission.instructions,
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.grey800),
+                        ),
+                      ),
+                    ],
+                    if (aDesProduits) ...[
+                      SizedBox(height: AppDimens.md.h),
+                      ProduitsCommandeBlock(
+                        commandeStructureId: mission.commandeStructureId!,
+                        accent: accent,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+          SizedBox(height: AppDimens.md.h),
+
           // Le SDK a détecté l'arrivée : on invite à valider l'étape
-          if (arrived) ...[
+          if (widget.arrived) ...[
             Row(
               children: [
                 Icon(LucideIcons.checkCircle2,
@@ -618,7 +846,7 @@ class _NavigatingPanel extends StatelessWidget {
                 SizedBox(width: 6.w),
                 Expanded(
                   child: Text(
-                    MissionLabels.of(mission).arrivalMessage,
+                    labels.arrivalMessage,
                     style: AppTextStyles.labelSmall
                         .copyWith(color: AppColors.success),
                   ),
@@ -628,13 +856,11 @@ class _NavigatingPanel extends StatelessWidget {
             SizedBox(height: AppDimens.md.h),
           ],
           SlideToConfirm(
-            label: MissionLabels.of(mission).actionButton,
+            label: labels.actionButton,
             icon: LucideIcons.packageCheck,
-            color: mission.isPickedUp
-                ? AppColors.success
-                : AppColors.secondary,
-            busy: busy,
-            onConfirm: onStepAction,
+            color: accent,
+            busy: widget.busy,
+            onConfirm: widget.onStepAction,
           ),
         ],
       ),
@@ -804,7 +1030,7 @@ class _MissionPanel extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    mission.isPickedUp ? 'LIVRAISON' : 'RÉCUPÉRATION',
+                    MissionLabels.of(mission).stepTitle,
                     style: TextStyle(
                       fontFamily: 'Archivo',
                       fontSize: 13.sp,
