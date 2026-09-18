@@ -137,32 +137,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Logo ────────────────────────────────────
-                // Logotype horizontal (720×250) : on ne contraint que
-                // la largeur, la hauteur suit le rapport de l'image.
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: AppDimens.xl.h),
-                  child: Center(
-                    child: Image.asset(
-                      'assets/images/logo_off.png',
-                      width: 160.w,
-                      cacheWidth: 480,
-                    ),
-                  ),
-                ),
+                SizedBox(height: AppDimens.huge.h),
 
                 // ── Titre ───────────────────────────────────
-                RichText(
-                  text: TextSpan(
-                    text: 'Bon ',
-                    style: AppTextStyles.h2,
-                    children: [
-                      TextSpan(
-                        text: 'retour',
-                        style: AppTextStyles.h2
-                            .copyWith(color: AppColors.secondary),
-                      ),
-                    ],
+                Text(
+                  'Se connecter',
+                  style: AppTextStyles.h1.copyWith(
+                    fontSize: 32.sp,
+                    color: AppColors.secondary,
                   ),
                 ),
                 SizedBox(height: AppDimens.xs.h),

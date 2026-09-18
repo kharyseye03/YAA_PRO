@@ -429,7 +429,7 @@ class _Step1 extends StatelessWidget {
           children: [
             RichText(
               text: TextSpan(
-                text: 'Créez votre\n',
+                text: 'Créez votre ',
                 style: AppTextStyles.h2,
                 children: [
                   TextSpan(
