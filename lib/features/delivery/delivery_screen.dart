@@ -74,6 +74,18 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     });
     _markerIcons = _loadMarkerIcons();
     _resumeGuidanceIfRunning();
+    _askNotificationsIfNeeded();
+  }
+
+  /// Autorisation des notifications, demandée ici et pas au premier
+  /// lancement : la notification du guidage n'a de sens qu'une fois une
+  /// mission acceptée, et Android ne montre la demande que deux fois.
+  void _askNotificationsIfNeeded() {
+    _appChannel.invokeMethod<bool>('requestNotificationPermission').catchError(
+        (Object e) {
+      debugPrint('Autorisation notifications : $e');
+      return null;
+    });
   }
 
   /// Le système peut détruire l'interface pendant que le guidage tourne
