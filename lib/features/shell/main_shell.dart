@@ -121,9 +121,16 @@ class _ProBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Hauteur de la barre système : nulle en navigation gestuelle,
+    // mais d'une cinquantaine de pixels avec les trois boutons. Sans
+    // elle, la barre flottante passe dessous et ses icônes deviennent
+    // intouchables — invisible sur un téléphone en gestes, d'où le
+    // défaut passé inaperçu.
+    final barreSysteme = MediaQuery.of(context).padding.bottom;
+
     return Container(
       color: Colors.transparent,
-      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h + barreSysteme),
       child: Container(
         height: 64.h,
         decoration: BoxDecoration(

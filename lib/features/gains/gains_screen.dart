@@ -434,7 +434,12 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
               ],
           },
 
-          SliverToBoxAdapter(child: SizedBox(height: 90.h)),
+          // Hauteur de la barre de navigation flottante, plus celle de
+          // la barre système sur les téléphones à trois boutons.
+          SliverToBoxAdapter(
+            child: SizedBox(
+                height: 90.h + MediaQuery.of(context).padding.bottom),
+          ),
         ],
         ),
       ),

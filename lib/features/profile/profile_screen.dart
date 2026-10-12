@@ -383,7 +383,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: AppTextStyles.caption.copyWith(color: AppColors.grey500),
             ),
 
-            SizedBox(height: 90.h),
+            // Barre de navigation flottante + barre système
+            SizedBox(height: 90.h + MediaQuery.of(context).padding.bottom),
           ],
         ),
       ),
