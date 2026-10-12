@@ -64,6 +64,23 @@
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
 
+        <!-- Canal par défaut des notifications reçues quand l'app est
+             fermée : Android les affiche lui-même, sans passer par le
+             code Dart. Sans ces lignes elles atterrissent dans un canal
+             « Divers » et sans icône. La valeur du canal doit rester
+             identique à celle de push_service.dart. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="yaa_pro_courses"/>
+        <!-- Icône monochrome de la barre d'état. Sans elle, Android
+             affiche l'icône de l'app en blanc sur blanc, donc rien. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/couleur_notification"/>
+
         <!-- Clé API Google Maps -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"

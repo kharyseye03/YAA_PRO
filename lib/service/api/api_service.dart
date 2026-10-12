@@ -159,6 +159,43 @@ class ApiService {
     }
   }
 
+  // ── Notifications push ────────────────────────────────────
+
+  /// Enregistre le jeton Firebase de cet appareil pour le livreur
+  /// connecté. Idempotent côté backend : renvoyer le même jeton ne
+  /// doit pas créer de doublon.
+  Future<void> enregistrerAppareil({
+    required String token,
+    required String plateforme, // ANDROID | IOS
+  }) async {
+    if (!ApiConfig.notificationsPushDisponibles) return;
+    final url = ApiConfig.getUrl(ApiConfig.appareilsEndpoint);
+    final response = await _authed((jeton) => http.post(
+          Uri.parse(url),
+          headers: {
+            ...ApiConfig.jsonHeaders,
+            'Authorization': 'Bearer $jeton',
+          },
+          body: jsonEncode({'token': token, 'plateforme': plateforme}),
+        ));
+    debugPrint('📡 Enregistrement appareil → ${response.statusCode}');
+    if (response.statusCode >= 400) {
+      throw Exception('Enregistrement de l\'appareil refusé.');
+    }
+  }
+
+  /// Détache le jeton du compte, à la déconnexion.
+  Future<void> supprimerAppareil({required String token}) async {
+    if (!ApiConfig.notificationsPushDisponibles) return;
+    final url =
+        ApiConfig.getUrl('${ApiConfig.appareilsEndpoint}/$token');
+    final response = await _authed((jeton) => http.delete(
+          Uri.parse(url),
+          headers: {'Authorization': 'Bearer $jeton'},
+        ));
+    debugPrint('📡 Suppression appareil → ${response.statusCode}');
+  }
+
   // ── Inscription ───────────────────────────────────────────
 
   /// Extrait le message d'erreur du body de réponse si présent.

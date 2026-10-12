@@ -35,6 +35,17 @@ dependencies:
   # nécessaire, et ne peut de toute façon pas cohabiter avec ce SDK.
   google_navigation_flutter: ^0.10.0
 
+  # ── Notifications push ──────────────────────────────────
+  # firebase_core lit la configuration native (google-services.json
+  # sur Android) ; firebase_messaging reçoit les messages.
+  # flutter_local_notifications sert uniquement à afficher la
+  # notification quand l'app est déjà ouverte : dans ce cas Android
+  # n'affiche rien de lui-même.
+  # Mêmes versions que l'app client, pour un comportement identique.
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  flutter_local_notifications: ^22.3.1
+
   # ── Data & Serialization ────────────────────────────────
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0

@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#001554</color>
+    <!-- Teinte appliquée par Android à l'icône de notification.
+         Orange YAA : sur fond de barre d'état clair ou sombre, il
+         reste lisible là où le bleu marine de l'app disparaîtrait. -->
+    <color name="couleur_notification">#FF6B35</color>
 </resources>

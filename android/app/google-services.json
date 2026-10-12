@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "225437452183",
+    "project_id": "yaa-delivery-498912",
+    "storage_bucket": "yaa-delivery-498912.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225437452183:android:052033e0689df6ae9326d2",
+        "android_client_info": {
+          "package_name": "gn.yaa.client"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmJ6vzDNNcQh2g-Acm2NMpthQqjzaZync"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225437452183:android:c9dac831389913ec9326d2",
+        "android_client_info": {
+          "package_name": "gn.yaa.pro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmJ6vzDNNcQh2g-Acm2NMpthQqjzaZync"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

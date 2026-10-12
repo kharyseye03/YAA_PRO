@@ -8,6 +8,8 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/constants.dart';
 import 'core/utils/app_router.dart';
 import 'features/delivery/providers/active_mission_provider.dart';
+import 'features/shell/main_shell.dart';
+import 'service/notifications/push_service.dart';
 import 'service/storage/active_mission_storage.dart';
 
 Future<void> main() async {
@@ -37,11 +39,33 @@ Future<void> main() async {
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
   ));
-  runApp(ProviderScope(
+  // Avant runApp : c'est ici que se récupère le message ayant réveillé
+  // une app fermée. N'échoue jamais — sans Firebase configuré, le
+  // service se désactive et l'app démarre normalement.
+  await PushService.instance.initialiser();
+
+  // Conteneur créé à la main plutôt que par ProviderScope : le service
+  // de notifications n'est pas un widget et a besoin de changer
+  // d'onglet quand le livreur touche une notification.
+  final conteneur = ProviderContainer(
     overrides: [
       activeMissionIdProvider
           .overrideWith((ref) => ActiveMissionIdNotifier(activeMissionId)),
     ],
+  );
+
+  // Le service reçoit les notifications, il ne sait pas naviguer : on
+  // lui donne ici de quoi le faire. Destination unique pour l'instant,
+  // l'onglet des courses ; les types de notification seront précisés
+  // avec le backend.
+  PushService.instance.onOuverture = (donnees) {
+    debugPrint('🔔 Notification ouverte → $donnees');
+    conteneur.read(shellIndexProvider.notifier).state = 1;
+    appRouter.go(RoutePaths.home);
+  };
+
+  runApp(UncontrolledProviderScope(
+    container: conteneur,
     child: const YaaProApp(),
   ));
 }

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/jwt.dart';
 import '../../../model/auth/auth_response.dart';
 import '../../../service/api/api_service.dart';
+import '../../../service/notifications/push_service.dart';
 import '../../../service/storage/token_storage.dart';
 import 'auth_state.dart';
 
@@ -40,6 +41,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await TokenStorage.instance.saveTokens(auth);
       await TokenStorage.instance.savePhone(username);
+      // Jeton de notification rattaché au compte, une fois la session
+      // ouverte. Volontairement sans `await` : c'est aussi le moment
+      // où l'autorisation est demandée, et le livreur ne doit pas
+      // attendre devant un écran figé pour ça.
+      PushService.instance.enregistrerAppareil();
       state = state.copyWith(isLoading: false, isAuthenticated: true);
       return true;
     } catch (e) {
@@ -88,6 +94,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
           return false;
         }
         state = state.copyWith(isAuthenticated: true);
+        // Les livreurs déjà connectés ne repassent jamais par l'écran
+        // de connexion : sans cet appel, ils n'auraient jamais de
+        // jeton de notification.
+        PushService.instance.enregistrerAppareil();
         return true;
       }
 
@@ -103,6 +113,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await TokenStorage.instance.saveTokens(auth);
       state = state.copyWith(isAuthenticated: true);
+      PushService.instance.enregistrerAppareil();
       return true;
     } on SessionRefusee {
       // Le serveur a refusé le refresh token : la session est bien
@@ -121,6 +132,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    // Avant d'effacer la session : sans ça, le livreur suivant à se
+    // connecter sur ce téléphone recevrait les notifications du
+    // précédent — ses courses, ses clients.
+    await PushService.instance.oublierAppareil();
     await TokenStorage.instance.clear();
     state = const AuthState();
   }
