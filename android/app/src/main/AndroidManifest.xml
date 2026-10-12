@@ -1,11 +1,36 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Obligatoire depuis Android 13 pour afficher la notification du
+         guidage. Demandée à l'exécution à l'ouverture d'une mission. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Injectée par le SDK Navigation de Google (7.7.0), retirée ici.
+         Elle n'est pas nécessaire au guidage : le SDK tourne dans un
+         service de premier plan (FOREGROUND_SERVICE_LOCATION, conservé),
+         lancé alors que l'app est visible puisque le coursier tape
+         « Démarrer ». Un tel service garde l'accès à la position écran
+         éteint sans cette autorisation — documenté par Google depuis la
+         version 5.4 du SDK.
+
+         La garder imposerait, sur Google Play, une déclaration de
+         localisation en arrière-plan : justification écrite, vidéo, écran
+         d'avertissement dans l'app et revue manuelle souvent refusée.
+
+         Limite assumée : un coursier qui met l'app en arrière-plan sans
+         avoir lancé le guidage cesse d'émettre sa position. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
+        tools:node="remove"/>
     <application
-        android:label="yaa_pro"
+        android:label="YAA PRO"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         >
         <activity
             android:name=".MainActivity"
@@ -29,6 +54,33 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Impeller, le moteur de rendu par défaut de Flutter, prépare
+             ses shaders au lancement. Sur les GPU MediaTek d'entrée de
+             gamme il échoue sur Vulkan, retombe sur OpenGL ES, et cette
+             préparation bloque le thread principal plusieurs secondes
+             avant le premier écran. Le moteur historique démarre
+             immédiatement. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
+
+        <!-- Canal par défaut des notifications reçues quand l'app est
+             fermée : Android les affiche lui-même, sans passer par le
+             code Dart. Sans ces lignes elles atterrissent dans un canal
+             « Divers » et sans icône. La valeur du canal doit rester
+             identique à celle de push_service.dart. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="yaa_pro_courses"/>
+        <!-- Icône monochrome de la barre d'état. Sans elle, Android
+             affiche l'icône de l'app en blanc sur blanc, donc rien. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/couleur_notification"/>
+
         <!-- Clé API Google Maps -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
@@ -48,6 +100,26 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+
+        <!-- Depuis Android 11, une app ne voit que les applications
+             qu'elle déclare ici. Sans ces trois entrées, `canLaunchUrl`
+             renvoie false et les boutons semblent cassés alors que le
+             téléphone sait parfaitement ouvrir un numéro ou un mail.
+             tel   : appeler le client, le commerçant, le support
+             mailto: écrire au support
+             https : ouvrir Google Maps en secours du guidage -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

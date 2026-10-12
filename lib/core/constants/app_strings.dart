@@ -22,7 +22,7 @@ abstract final class AppStrings {
   static const String cniNumber = 'Numéro CNI';
   static const String vehicleMoto = 'Moto';
   static const String vehicleCar = 'Voiture';
-  static const String vehicleBike = 'Vélo';
+  static const String vehicleCargo = 'Cargo';
 
   // ── Common ───────────────────────────────────────────────
   static const String next = 'Suivant';
@@ -71,5 +71,5 @@ abstract final class AppStrings {
   // ── Errors ───────────────────────────────────────────────
   static const String genericError = 'Une erreur est survenue. Veuillez réessayer.';
   static const String networkError = 'Vérifiez votre connexion internet.';
-  static const String serverError = 'Erreur serveur. Réessayez plus tard.';
+  static const String serverError = 'Une erreur est survenue. Réessayez plus tard.';
 }

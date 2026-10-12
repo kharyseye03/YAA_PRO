@@ -163,8 +163,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                       : ListView.separated(
                           physics:
                               const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: AppDimens.screenPadding.w),
+                          // Place réservée en bas pour la barre de
+                          // navigation flottante et la barre système,
+                          // sinon la dernière commande passe dessous.
+                          padding: EdgeInsets.fromLTRB(
+                            AppDimens.screenPadding.w,
+                            0,
+                            AppDimens.screenPadding.w,
+                            100.h + MediaQuery.of(context).padding.bottom,
+                          ),
                           itemCount: orders.length,
                           separatorBuilder: (_, __) =>
                               SizedBox(height: AppDimens.md.h),

@@ -22,6 +22,9 @@ plugins {
     // 8.13.2 minimum requis par le Navigation SDK Google
     id("com.android.application") version "8.13.2" apply false
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    // Lit android/app/google-services.json au build et en injecte les
+    // identifiants Firebase dans les ressources de l'app.
+    id("com.google.gms.google-services") version "4.4.3" apply false
 }
 
 include(":app")

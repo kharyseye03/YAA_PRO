@@ -106,7 +106,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                 padding: EdgeInsets.all(AppDimens.xl.r),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1A1A2E), Color(0xFF0D1117)],
+                    colors: [AppColors.primary, AppColors.primaryDark],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -126,7 +126,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                     Row(
                       children: [
                         Text(
-                          'Solde disponible',
+                          'Total de vos gains',
                           style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.white.withValues(alpha: 0.65),
                           ),
@@ -167,7 +167,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                           duration: const Duration(milliseconds: 200),
                           child: _balanceVisible
                               ? Text(
-                                  '0',
+                                  summary?.totalFormate ?? '0',
                                   key: const ValueKey('shown'),
                                   style: TextStyle(
                                     fontFamily: 'Archivo',
@@ -228,34 +228,6 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
                           ),
                         ),
                       ],
-                    ),
-                    SizedBox(height: AppDimens.xl.h),
-
-                    // Bouton Charger
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {},
-                        icon: Icon(LucideIcons.wallet, size: 16.r),
-                        label: Text(
-                          'Charger',
-                          style: TextStyle(
-                            fontFamily: 'Archivo',
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.white,
-                          foregroundColor: AppColors.dark,
-                          minimumSize: Size(double.infinity, 48.h),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppDimens.radiusMd),
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -462,7 +434,12 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
               ],
           },
 
-          SliverToBoxAdapter(child: SizedBox(height: 90.h)),
+          // Hauteur de la barre de navigation flottante, plus celle de
+          // la barre système sur les téléphones à trois boutons.
+          SliverToBoxAdapter(
+            child: SizedBox(
+                height: 90.h + MediaQuery.of(context).padding.bottom),
+          ),
         ],
         ),
       ),

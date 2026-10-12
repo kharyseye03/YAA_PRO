@@ -2,7 +2,7 @@ name: yaa_pro
 description: "YAA PRO - Application mobile pour les livreurs"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+3
 
 environment:
   sdk: ^3.9.2
@@ -34,6 +34,17 @@ dependencies:
   # Fournit aussi GoogleMapsMapView : google_maps_flutter n'est plus
   # nécessaire, et ne peut de toute façon pas cohabiter avec ce SDK.
   google_navigation_flutter: ^0.10.0
+
+  # ── Notifications push ──────────────────────────────────
+  # firebase_core lit la configuration native (google-services.json
+  # sur Android) ; firebase_messaging reçoit les messages.
+  # flutter_local_notifications sert uniquement à afficher la
+  # notification quand l'app est déjà ouverte : dans ce cas Android
+  # n'affiche rien de lui-même.
+  # Mêmes versions que l'app client, pour un comportement identique.
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  flutter_local_notifications: ^22.3.1
 
   # ── Data & Serialization ────────────────────────────────
   freezed_annotation: ^2.4.4
@@ -70,6 +81,26 @@ dev_dependencies:
   freezed: ^2.5.8
   json_serializable: ^6.9.4
   riverpod_generator: ^2.6.3
+  flutter_launcher_icons: ^0.14.4
+
+# ── Icône de lancement ────────────────────────────────────
+# Régénérer après toute modification du logo :
+#   dart run flutter_launcher_icons
+#
+# Les fichiers d'`assets/icon/` sont produits à partir de
+# `logo_white.png` : ils ne sont pas déclarés dans `assets:` puisqu'ils
+# ne servent qu'à la génération, jamais à l'affichage dans l'app.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  # Icône adaptative Android : le système masque le calque avant selon
+  # la forme choisie par le constructeur, d'où un logo volontairement
+  # réduit dans le fichier source pour rester dans la zone sûre.
+  adaptive_icon_background: "#001554"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
+  # iOS interdit la transparence dans les icônes.
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true
@@ -100,6 +131,10 @@ flutter:
   # 112 fichiers du dossier — italiques, variables, README compris — en
   # plus des 5 graisses réellement utilisées.
   assets:
-    - assets/images/logo-pro3.jpeg
+    - assets/images/logo_white.png
     - assets/images/map2.png
     - assets/images/ob2.jpeg
+    - assets/images/ob1.png
+    - assets/images/moto.png
+    - assets/images/voiture.png
+    - assets/images/cargo.png

@@ -13,6 +13,21 @@ import '../../model/order/history_mission.dart';
 import '../../model/order/mission.dart';
 import '../storage/token_storage.dart';
 
+/// Le serveur a explicitement refusé la session : refresh token révoqué,
+/// expiré, ou compte désactivé.
+///
+/// À distinguer d'une panne réseau : dans ce cas seul il faut effacer
+/// les tokens locaux. Une connexion momentanément absente ne doit
+/// jamais déconnecter le livreur — c'est ce qui l'obligeait à ressaisir
+/// son mot de passe à chaque réouverture de l'app.
+class SessionRefusee implements Exception {
+  final String message;
+  const SessionRefusee([this.message = 'Session expirée.']);
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   // ── Session ───────────────────────────────────────────────
 
@@ -132,20 +147,69 @@ class ApiService {
         return AuthResponse.fromJson(
             jsonDecode(response.body) as Map<String, dynamic>);
       }
-      throw Exception('Session expirée.');
+      // Keycloak refuse le refresh token : il est révoqué ou périmé.
+      // C'est le seul cas où la session est réellement perdue.
+      debugPrint('🔒 Refresh refusé (${response.statusCode}) : '
+          '${response.body}');
+      throw const SessionRefusee();
     } on http.ClientException {
+      // Réseau indisponible : la session reste valable, on réessaiera.
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
     }
   }
 
+  // ── Notifications push ────────────────────────────────────
+
+  /// Enregistre le jeton Firebase de cet appareil pour le livreur
+  /// connecté. Idempotent côté backend : renvoyer le même jeton ne
+  /// doit pas créer de doublon.
+  Future<void> enregistrerAppareil({
+    required String token,
+    required String plateforme, // ANDROID | IOS
+  }) async {
+    if (!ApiConfig.notificationsPushDisponibles) return;
+    final url = ApiConfig.getUrl(ApiConfig.appareilsEndpoint);
+    final response = await _authed((jeton) => http.post(
+          Uri.parse(url),
+          headers: {
+            ...ApiConfig.jsonHeaders,
+            'Authorization': 'Bearer $jeton',
+          },
+          body: jsonEncode({'token': token, 'plateforme': plateforme}),
+        ));
+    debugPrint('📡 Enregistrement appareil → ${response.statusCode}');
+    if (response.statusCode >= 400) {
+      throw Exception('Enregistrement de l\'appareil refusé.');
+    }
+  }
+
+  /// Détache le jeton du compte, à la déconnexion.
+  Future<void> supprimerAppareil({required String token}) async {
+    if (!ApiConfig.notificationsPushDisponibles) return;
+    final url =
+        ApiConfig.getUrl('${ApiConfig.appareilsEndpoint}/$token');
+    final response = await _authed((jeton) => http.delete(
+          Uri.parse(url),
+          headers: {'Authorization': 'Bearer $jeton'},
+        ));
+    debugPrint('📡 Suppression appareil → ${response.statusCode}');
+  }
+
   // ── Inscription ───────────────────────────────────────────
 
   /// Extrait le message d'erreur du body de réponse si présent.
+  ///
+  /// Sur une erreur 5xx, le message du backend est technique
+  /// (« Erreur interne du serveur »…) : on ne le montre jamais.
   String _errorMessage(http.Response response, String fallback) {
+    if (response.statusCode >= 500) {
+      return 'Une erreur est survenue. Veuillez réessayer dans un instant.';
+    }
     try {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['message'] as String? ?? fallback;
+      final message = data['message'] as String?;
+      return (message == null || message.trim().isEmpty) ? fallback : message;
     } catch (_) {
       return fallback;
     }
@@ -167,9 +231,11 @@ class ApiService {
     required String couleur,
     required String carteGrise,
   }) async {
+    final url = ApiConfig.getUrl(ApiConfig.registerEndpoint);
     try {
+      debugPrint('🌐 POST $url');
       final response = await http.post(
-        Uri.parse(ApiConfig.getUrl(ApiConfig.registerEndpoint)),
+        Uri.parse(url),
         headers: ApiConfig.jsonHeaders,
         body: jsonEncode({
           'firstName': firstName,
@@ -188,6 +254,13 @@ class ApiService {
           'carteGrise': carteGrise,
         }),
       );
+
+      // Le corps est journalisé même en cas de succès : le serveur peut
+      // répondre 200 sans avoir envoyé de code — compte déjà inscrit,
+      // service mail indisponible — et c'est le seul endroit où ça se
+      // voit côté app.
+      debugPrint('📡 Inscription → ${response.statusCode}');
+      debugPrint('📬 Body → ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return;
@@ -275,6 +348,9 @@ class ApiService {
         headers: ApiConfig.jsonHeaders,
         body: jsonEncode({'email': email, 'telephone': telephone}),
       );
+
+      debugPrint('📡 Renvoi du code → ${response.statusCode}');
+      debugPrint('📬 Body → ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return;
@@ -407,6 +483,34 @@ class ApiService {
       }
       throw Exception(_errorMessage(
           response, 'Impossible de charger la mission.'));
+    } on http.ClientException {
+      throw Exception(
+          'Impossible de se connecter. Vérifiez votre connexion.');
+    }
+  }
+
+  /// Supprime définitivement le compte du livreur connecté.
+  ///
+  /// Contrairement au reste des appels, un échec doit remonter jusqu'à
+  /// l'écran : l'utilisateur croirait son compte effacé alors qu'il ne
+  /// l'est pas, et le nettoyage local le déconnecterait sans raison.
+  Future<void> deleteAccount(int driverId) async {
+    final url = ApiConfig.getUrl(ApiConfig.deleteAccountEndpoint(driverId));
+    try {
+      debugPrint('🌐 DELETE $url');
+      final response = await _authed((token) => http.delete(
+            Uri.parse(url),
+            headers: {'Authorization': 'Bearer $token'},
+          ));
+      debugPrint('📡 Status → ${response.statusCode}');
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 202 ||
+          response.statusCode == 204) {
+        return;
+      }
+      throw Exception(_errorMessage(
+          response, 'Impossible de supprimer le compte.'));
     } on http.ClientException {
       throw Exception(
           'Impossible de se connecter. Vérifiez votre connexion.');
@@ -691,15 +795,8 @@ class ApiService {
         return;
       }
 
-      Map<String, dynamic> data = {};
-      if (response.body.isNotEmpty) {
-        try {
-          data = json.decode(response.body) as Map<String, dynamic>;
-        } catch (_) {}
-      }
-      final errorMessage =
-          data['message'] as String? ?? 'Erreur ${response.statusCode}';
-      throw Exception(errorMessage);
+      throw Exception(_errorMessage(
+          response, 'La mise à jour du profil a échoué. Réessayez.'));
     } on SocketException {
       throw Exception('Pas de connexion internet.');
     } on TimeoutException catch (e) {

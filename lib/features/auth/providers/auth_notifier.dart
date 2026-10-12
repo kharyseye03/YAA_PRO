@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/utils/jwt.dart';
+import '../../../model/auth/auth_response.dart';
 import '../../../service/api/api_service.dart';
+import '../../../service/notifications/push_service.dart';
 import '../../../service/storage/token_storage.dart';
 import 'auth_state.dart';
 
@@ -28,19 +30,56 @@ class AuthNotifier extends StateNotifier<AuthState> {
             '${realmRolesOf(auth.accessToken)}');
         state = state.copyWith(
           isLoading: false,
-          error: 'Ce compte n\'est pas un compte livreur. '
-              'Utilisez l\'application YAA pour commander une livraison.',
+          // Même message qu'un mot de passe erroné, volontairement :
+          // distinguer les deux cas reviendrait à confirmer qu'un
+          // compte existe. La cause réelle reste dans le log ci-dessus,
+          // pour nous.
+          error: 'Identifiants incorrects.',
         );
         return false;
       }
 
       await TokenStorage.instance.saveTokens(auth);
       await TokenStorage.instance.savePhone(username);
+      // Jeton de notification rattaché au compte, une fois la session
+      // ouverte. Volontairement sans `await` : c'est aussi le moment
+      // où l'autorisation est demandée, et le livreur ne doit pas
+      // attendre devant un écran figé pour ça.
+      PushService.instance.enregistrerAppareil();
       state = state.copyWith(isLoading: false, isAuthenticated: true);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _cleanError(e));
       return false;
+    }
+  }
+
+  /// Renouvelle le token en tolérant un réseau pas encore prêt.
+  ///
+  /// L'app démarre en moins d'une seconde : au déverrouillage du
+  /// téléphone, le Wi-Fi ou la 4G n'est souvent pas encore rétabli
+  /// quand cet appel part. Trois tentatives espacées suffisent à
+  /// couvrir ce décalage, au lieu de renvoyer le livreur sur l'écran
+  /// de connexion alors que sa session est parfaitement valable.
+  ///
+  /// Un refus explicite du serveur ([SessionRefusee]) n'est jamais
+  /// retenté : il ne s'améliorera pas.
+  Future<AuthResponse> _refreshAvecReprises(String refresh) async {
+    const attentes = [
+      Duration(milliseconds: 600),
+      Duration(milliseconds: 1500),
+    ];
+    for (var essai = 0;; essai++) {
+      try {
+        return await _api.refreshToken(refreshToken: refresh);
+      } on SessionRefusee {
+        rethrow;
+      } catch (e) {
+        if (essai >= attentes.length) rethrow;
+        debugPrint('🔄 Renouvellement échoué, nouvelle tentative '
+            'dans ${attentes[essai].inMilliseconds} ms → $e');
+        await Future.delayed(attentes[essai]);
+      }
     }
   }
 
@@ -55,12 +94,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
           return false;
         }
         state = state.copyWith(isAuthenticated: true);
+        // Les livreurs déjà connectés ne repassent jamais par l'écran
+        // de connexion : sans cet appel, ils n'auraient jamais de
+        // jeton de notification.
+        PushService.instance.enregistrerAppareil();
         return true;
       }
 
       final refresh = await TokenStorage.instance.getRefreshToken();
       if (refresh == null) return false;
-      final auth = await _api.refreshToken(refreshToken: refresh);
+      final auth = await _refreshAvecReprises(refresh);
 
       // Le rôle a pu être retiré depuis la dernière connexion
       if (!estLivreur(auth.accessToken)) {
@@ -70,14 +113,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await TokenStorage.instance.saveTokens(auth);
       state = state.copyWith(isAuthenticated: true);
+      PushService.instance.enregistrerAppareil();
       return true;
-    } catch (_) {
+    } on SessionRefusee {
+      // Le serveur a refusé le refresh token : la session est bien
+      // perdue, on nettoie et le livreur devra se reconnecter.
       await TokenStorage.instance.clear();
+      return false;
+    } catch (e) {
+      // Tout le reste — réseau absent, serveur injoignable, délai
+      // dépassé — est passager. On garde les tokens : l'app démarre
+      // désormais en moins d'une seconde, souvent avant que le Wi-Fi
+      // ne soit revenu, et les effacer ici obligeait le livreur à
+      // ressaisir son mot de passe à chaque réouverture.
+      debugPrint('🔒 Reconnexion automatique reportée → $e');
       return false;
     }
   }
 
   Future<void> logout() async {
+    // Avant d'effacer la session : sans ça, le livreur suivant à se
+    // connecter sur ce téléphone recevrait les notifications du
+    // précédent — ses courses, ses clients.
+    await PushService.instance.oublierAppareil();
     await TokenStorage.instance.clear();
     state = const AuthState();
   }

@@ -55,7 +55,11 @@ class HomeScreen extends ConsumerWidget {
           Positioned(
             left: 16.w,
             right: 16.w,
-            bottom: 90.h,
+            // La barre de navigation flotte au-dessus du contenu : on
+            // réserve sa hauteur, plus celle de la barre système, nulle
+            // en navigation gestuelle mais bien réelle avec les trois
+            // boutons.
+            bottom: 90.h + MediaQuery.of(context).padding.bottom,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -220,7 +224,7 @@ class _HomeHeader extends ConsumerWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF1A1A2E),
+        color: AppColors.primary,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),

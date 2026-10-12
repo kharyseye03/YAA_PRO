@@ -137,34 +137,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Logo ────────────────────────────────────
-                // L'espace sous le logo vient des marges blanches de
-                // l'image elle-même : on le réduit en réduisant le
-                // cadre, pas en jouant sur un SizedBox qui n'existe pas.
-                Center(
-                  child: Image.asset(
-                    'assets/images/logo-pro3.jpeg',
-                    width: 130.w,
-                    height: 130.h,
-                    // Le fichier source fait 2752×1536 : sans cette
-                    // consigne, Flutter le décode à sa taille réelle,
-                    // soit 16 Mo de RAM pour un rendu de 130 px.
-                    cacheWidth: 400,
-                  ),
-                ),
+                SizedBox(height: AppDimens.huge.h),
 
                 // ── Titre ───────────────────────────────────
-                RichText(
-                  text: TextSpan(
-                    text: 'Bon ',
-                    style: AppTextStyles.h2,
-                    children: [
-                      TextSpan(
-                        text: 'retour',
-                        style: AppTextStyles.h2
-                            .copyWith(color: AppColors.secondary),
-                      ),
-                    ],
+                Text(
+                  'Se connecter',
+                  style: AppTextStyles.h1.copyWith(
+                    fontSize: 32.sp,
+                    color: AppColors.secondary,
                   ),
                 ),
                 SizedBox(height: AppDimens.xs.h),

@@ -3,7 +3,7 @@
      en blanc plutôt qu'hérité du thème système : l'app n'ayant pas de
      mode sombre, un fond suivant le téléphone donnait un écran noir. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+    <item android:drawable="@color/ic_launcher_background" />
 
     <item>
         <bitmap

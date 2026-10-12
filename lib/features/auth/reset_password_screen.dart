@@ -60,7 +60,7 @@ class _ResetPasswordScreenState
         ? 'Compte créé avec succès !'
         : 'Mot de passe mis à jour !';
     final message = widget.fromRegistration
-        ? 'Connectez-vous pour accéder à votre espace livreur.'
+        ? 'Connectez-vous pour accéder à votre espace pro.'
         : 'Connectez-vous avec votre nouveau mot de passe.';
 
     showDialog(

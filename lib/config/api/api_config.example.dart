@@ -18,6 +18,10 @@ class ApiConfig {
   static const String driverDetailEndpoint = '/registrations/detail';
   static const String updateProfileEndpoint = '/registrations/update';
 
+  /// Suppression définitive du compte. [id] est l'identifiant du
+  /// livreur connecté, pas son téléphone.
+  static String deleteAccountEndpoint(int id) => '/registrations/$id';
+
   /// Position courante du livreur, publiée pendant une mission pour
   /// que le client puisse le suivre sur sa carte.
   static const String setDriverPositionEndpoint =

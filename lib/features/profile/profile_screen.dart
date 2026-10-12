@@ -2,14 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
 import '../../config/api/api_config.dart';
+import '../../model/driver/driver_detail.dart';
 import '../auth/providers/auth_notifier.dart';
 import '../auth/providers/driver_provider.dart';
 import '../orders/providers/refused_missions_provider.dart';
 import '../shell/main_shell.dart';
 
+/// Profil du coursier.
+///
+/// Les lignes sont groupées en cartes posées sur un fond gris, plutôt
+/// qu'alignées à plat séparées par des filets. La liste précédente
+/// mélangeait des filets pleine largeur et d'autres indentés, ce qui
+/// suggérait des groupes sans jamais dire lesquels.
+///
+/// Chaque ligne porte la **valeur du moment** en sous-titre — « Mame
+/// Khary · 622 12 34 56 », « Yamaha · AB-123-CD » — pour renseigner
+/// sans qu'on ait à l'ouvrir.
+///
+/// Même structure que le profil de l'application client, moins la
+/// carte de recrutement qui n'a pas de sens ici.
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -18,17 +33,220 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  bool _notificationsEnabled = true;
+  /// Bloque un second appui pendant l'appel de suppression.
+  bool _suppressionEnCours = false;
+
+  /// « 622123456 » → « 622 12 34 56 »
+  static String _formatPhone(String raw) {
+    final d = raw.replaceAll(RegExp(r'\D'), '');
+    final local = d.length > 9 ? d.substring(d.length - 9) : d;
+    if (local.length != 9) return raw;
+    return '${local.substring(0, 3)} ${local.substring(3, 5)} '
+        '${local.substring(5, 7)} ${local.substring(7)}';
+  }
+
+  /// Ouvre un lien externe sans jamais laisser l'appui sans effet.
+  ///
+  /// Sur Android 11+, `canLaunchUrl` renvoie false pour un schéma que
+  /// le manifeste ne déclare pas — le bouton semble alors cassé. Si
+  /// l'appareil n'a aucune application pour l'ouvrir, on le dit au
+  /// lieu de ne rien faire.
+  Future<void> _ouvrir(Uri uri, String siImpossible) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(siImpossible)),
+    );
+  }
+
+  /// Feuille de choix du canal de contact.
+  ///
+  /// Le coursier ouvre « Support » sans savoir encore s'il préfère
+  /// appeler ou écrire — c'est ici qu'il tranche, plutôt que devant
+  /// deux lignes qui se ressemblent dans la liste.
+  Future<void> _ouvrirSupport() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (feuille) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(feuille).padding.bottom + AppDimens.lg.h,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 38.w,
+              height: 4.h,
+              margin: EdgeInsets.symmetric(vertical: AppDimens.md.h),
+              decoration: BoxDecoration(
+                color: AppColors.grey300,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(AppDimens.md.w, 0,
+                  AppDimens.md.w, AppDimens.sm.h),
+              child: Row(
+                children: [
+                  Text('Contacter le support',
+                      style: AppTextStyles.labelLarge
+                          .copyWith(color: AppColors.dark)),
+                ],
+              ),
+            ),
+            _Ligne(
+              icon: Icons.phone_outlined,
+              label: 'Appeler',
+              subtitle: AppContacts.telephoneSupport,
+              onTap: () {
+                Navigator.of(feuille).pop();
+                _ouvrir(
+                  Uri(scheme: 'tel', path: AppContacts.telephoneSupport),
+                  'Aucune application téléphone',
+                );
+              },
+            ),
+            _Ligne(
+              icon: Icons.mail_outline_rounded,
+              label: 'Écrire',
+              subtitle: AppContacts.emailSupport,
+              onTap: () {
+                Navigator.of(feuille).pop();
+                _ouvrir(
+                  Uri(scheme: 'mailto', path: AppContacts.emailSupport),
+                  'Aucune application e-mail',
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Suppression définitive du compte.
+  ///
+  /// Exigée par Google Play pour toute application permettant de créer
+  /// un compte. La confirmation est volontairement plus lourde que
+  /// celle de la déconnexion : c'est irréversible, et un appui par
+  /// erreur ferait perdre au coursier son historique et ses gains.
+  Future<void> _supprimerCompte(int driverId) async {
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text(
+          'Supprimer votre compte ?',
+          style: AppTextStyles.labelLarge.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.error,
+          ),
+        ),
+        content: Text(
+          'Cette action est définitive. Votre profil, votre véhicule et '
+          'l\'historique de vos courses seront supprimés, et vous ne '
+          'pourrez plus vous connecter avec ce numéro.',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey700),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Annuler',
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.grey600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Supprimer définitivement',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirme != true || !mounted) return;
+
+    setState(() => _suppressionEnCours = true);
+    try {
+      await ref.read(apiServiceProvider).deleteAccount(driverId);
+      if (!mounted) return;
+      // Le compte n'existe plus : on nettoie l'état local exactement
+      // comme à la déconnexion, sinon l'app rouvrirait sur des données
+      // d'un compte effacé.
+      await ref.read(refusedMissionsProvider.notifier).clear();
+      ref.read(shellIndexProvider.notifier).state = 0;
+      await ref.read(authProvider.notifier).logout();
+      if (mounted) context.goNamed(RouteNames.onboarding);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _suppressionEnCours = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
 
   Future<void> _logout() async {
-    // Les missions refusées sont propres à un livreur
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Text(
+          'Se déconnecter',
+          style:
+              AppTextStyles.labelLarge.copyWith(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Êtes-vous sûr de vouloir vous déconnecter ?',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey600),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Annuler',
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.grey600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Se déconnecter',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirme != true) return;
+
+    // Les missions refusées sont propres à un coursier
     await ref.read(refusedMissionsProvider.notifier).clear();
     // Sinon la prochaine connexion rouvre l'app sur cet onglet
     ref.read(shellIndexProvider.notifier).state = 0;
     await ref.read(authProvider.notifier).logout();
     // Retour à l'onboarding plutôt qu'au login : la déconnexion remet
-    // l'app dans l'état d'un premier lancement, et le livreur retrouve
-    // l'écran d'accueil de la marque avant de se reconnecter.
+    // l'app dans l'état d'un premier lancement.
     if (mounted) context.goNamed(RouteNames.onboarding);
   }
 
@@ -36,205 +254,137 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
     final driver = ref.watch(driverDetailProvider).valueOrNull;
-    final imageUrl = driver?.imageFileName != null
-        ? ApiConfig.getImageUrl(driver!.imageFileName!)
-        : null;
 
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SingleChildScrollView(
+    return Container(
+      color: AppColors.background,
+      child: SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(height: top + 24.h),
+            SizedBox(height: top + AppDimens.xl.h),
 
-            // ── Avatar + nom ─────────────────────────────────
-            Center(
-              child: Column(
-                children: [
-                  // Avatar avec bouton edit
-                  Stack(
-                    children: [
-                      Container(
-                        width: 88.r,
-                        height: 88.r,
-                        decoration: BoxDecoration(
-                          color: AppColors.grey100,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: AppColors.grey200, width: 2),
-                          image: imageUrl != null
-                              ? DecorationImage(
-                                  image: NetworkImage(imageUrl),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: imageUrl == null
-                            ? Icon(
-                                Icons.person_rounded,
-                                color: AppColors.grey400,
-                                size: 44.r,
-                              )
-                            : null,
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: () => context
-                              .pushNamed(RouteNames.editPersonalInfo),
-                          behavior: HitTestBehavior.opaque,
-                          child: Container(
-                            width: 28.r,
-                            height: 28.r,
-                            decoration: BoxDecoration(
-                              color: AppColors.dark,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: AppColors.white, width: 2),
-                            ),
-                            child: Icon(Icons.edit_rounded,
-                                color: AppColors.white, size: 13.r),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+            _EnTete(driver: driver),
 
-                  SizedBox(height: 14.h),
+            SizedBox(height: AppDimens.xl.h),
 
-                  // Nom
-                  Text(
-                    driver?.fullName ?? '...',
-                    style: AppTextStyles.h3.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.dark,
+            // ── Compte ────────────────────────────────────
+            _Carte(children: [
+              _Ligne(
+                icon: Icons.person_outline_rounded,
+                label: 'Informations personnelles',
+                // Nom et numéro rendent la ligne utile sans avoir à
+                // l'ouvrir.
+                subtitle: [
+                  driver?.fullName,
+                  driver == null ? null : _formatPhone(driver.telephone),
+                ].where((e) => e != null && e.isNotEmpty).join(' · '),
+                onTap: () => context.pushNamed(RouteNames.personalInfo),
+              ),
+              _Ligne(
+                icon: Icons.two_wheeler_rounded,
+                label: 'Mon véhicule',
+                subtitle: driver?.vehiculeInfo?.resume ?? 'Non renseigné',
+                onTap: () => context.pushNamed(RouteNames.vehicle),
+              ),
+            ]),
+
+            SizedBox(height: AppDimens.lg.h),
+
+            _Carte(children: [
+              _Ligne(
+                icon: Icons.receipt_long_outlined,
+                label: 'Historique des courses',
+                subtitle: 'Vos courses terminées',
+                onTap: () => context.pushNamed(RouteNames.history),
+              ),
+            ]),
+
+            SizedBox(height: AppDimens.lg.h),
+
+            // ── Aide ──────────────────────────────────────
+            // Une seule ligne plutôt que deux : le coursier veut
+            // « joindre le support », le canal se choisit ensuite.
+            _Carte(children: [
+              _Ligne(
+                icon: Icons.headset_mic_outlined,
+                label: 'Support',
+                subtitle: 'Une question, un problème ?',
+                onTap: _ouvrirSupport,
+              ),
+            ]),
+
+            SizedBox(height: AppDimens.xl.h),
+
+            // ── Déconnexion ───────────────────────────────
+            // En rouge et pleine largeur : c'est une action qu'on
+            // cherche, elle ne doit pas se confondre avec le pied de
+            // page.
+            Padding(
+              padding:
+                  EdgeInsets.symmetric(horizontal: AppDimens.screenPadding.w),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _logout,
+                  icon: Icon(Icons.logout_rounded,
+                      size: 18.r, color: AppColors.error),
+                  label: Text(
+                    'Se déconnecter',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.error,
                     ),
                   ),
-
-                  SizedBox(height: 4.h),
-
-                  // Email
-                  Text(
-                    driver?.email ?? '',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.grey400,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: Size(double.infinity, 50.h),
+                    backgroundColor: AppColors.errorLight,
+                    side: BorderSide(
+                        color: AppColors.error.withValues(alpha: 0.25)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppDimens.radiusLg),
                     ),
                   ),
-
-                  SizedBox(height: 10.h),
-
-                  // Note : masquée tant que le livreur n'a pas été noté
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.star_rounded,
-                          color: driver?.estNote == true
-                              ? const Color(0xFFF4C430)
-                              : AppColors.grey300,
-                          size: 16.r),
-                      SizedBox(width: 4.w),
-                      if (driver?.estNote == true) ...[
-                        Text(
-                          driver!.notation!.toStringAsFixed(1),
-                          style: AppTextStyles.labelSmall
-                              .copyWith(color: AppColors.dark),
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          '(${driver.nombreNotations} avis)',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.grey600),
-                        ),
-                      ] else
-                        Text(
-                          'Pas encore noté',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.grey600),
-                        ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
 
-            SizedBox(height: 32.h),
-            Divider(height: 1, color: AppColors.grey200),
+            SizedBox(height: AppDimens.sm.h),
 
-            // ── Infos personnelles ────────────────────────────
-            _Row(
-              icon: Icons.person_outline_rounded,
-              label: 'Informations personnelles',
-              onTap: () => context.pushNamed(RouteNames.personalInfo),
-            ),
-            const _RowDivider(),
-            _Row(
-              icon: Icons.two_wheeler_rounded,
-              label: 'Mon véhicule',
-              subtitle: driver?.vehiculeInfo?.resume ?? 'Non renseigné',
-              onTap: () => context.pushNamed(RouteNames.vehicle),
-            ),
-            const _RowDivider(),
-            _Row(
-              icon: Icons.history_rounded,
-              label: 'Historique',
-              subtitle: 'Vos commandes terminées',
-              onTap: () => context.pushNamed(RouteNames.history),
-            ),
+            // ── Suppression du compte ─────────────────────
+            // Discret et sans encadré : c'est une sortie de secours,
+            // pas une action qu'on propose au même niveau que la
+            // déconnexion.
+            if (driver != null)
+              TextButton(
+                onPressed: _suppressionEnCours
+                    ? null
+                    : () => _supprimerCompte(driver.id),
+                child: _suppressionEnCours
+                    ? SizedBox(
+                        height: 16.r,
+                        width: 16.r,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: AppColors.error),
+                      )
+                    : Text(
+                        'Supprimer mon compte',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.error,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.error,
+                        ),
+                      ),
+              ),
 
-            SizedBox(height: 8.h),
-            Divider(height: 1, color: AppColors.grey200),
-            SizedBox(height: 8.h),
+            SizedBox(height: AppDimens.sm.h),
 
-            // ── Préférences ───────────────────────────────────
-            _ToggleRow(
-              icon: Icons.notifications_none_rounded,
-              label: 'Notifications',
-              value: _notificationsEnabled,
-              onChanged: (v) => setState(() => _notificationsEnabled = v),
-            ),
-            const _RowDivider(),
-            _Row(
-              icon: Icons.language_rounded,
-              label: 'Langue',
-              subtitle: 'Français',
-              onTap: () {},
-            ),
-            const _RowDivider(),
-            _Row(
-              icon: Icons.help_outline_rounded,
-              label: 'Aide & Support',
-              onTap: () {},
-            ),
-            const _RowDivider(),
-            _Row(
-              icon: Icons.privacy_tip_outlined,
-              label: 'Confidentialité',
-              onTap: () {},
+            Text(
+              'YAA PRO · version 1.0.0',
+              style: AppTextStyles.caption.copyWith(color: AppColors.grey500),
             ),
 
-            SizedBox(height: 8.h),
-            Divider(height: 1, color: AppColors.grey200),
-            SizedBox(height: 8.h),
-
-            // ── Déconnexion ───────────────────────────────────
-            _Row(
-              icon: Icons.logout_rounded,
-              label: 'Se déconnecter',
-              labelColor: AppColors.error,
-              iconColor: AppColors.error,
-              onTap: _logout,
-            ),
-            const _RowDivider(),
-            _Row(
-              icon: Icons.delete_outline_rounded,
-              label: 'Supprimer mon compte',
-              labelColor: AppColors.error,
-              iconColor: AppColors.error,
-              onTap: () {},
-            ),
-
-            SizedBox(height: 100.h),
+            // Barre de navigation flottante + barre système
+            SizedBox(height: 90.h + MediaQuery.of(context).padding.bottom),
           ],
         ),
       ),
@@ -242,40 +392,171 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-// ── Ligne simple ─────────────────────────────────────────────────
-class _Row extends StatelessWidget {
-  const _Row({
+// ── En-tête : avatar, nom, note ───────────────────────────────
+class _EnTete extends StatelessWidget {
+  const _EnTete({required this.driver});
+  final DriverDetail? driver;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = driver?.imageFileName != null
+        ? ApiConfig.getImageUrl(driver!.imageFileName!)
+        : null;
+
+    return Column(
+      children: [
+        Stack(
+          children: [
+            Container(
+              width: 88.r,
+              height: 88.r,
+              decoration: BoxDecoration(
+                color: AppColors.grey100,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.grey200, width: 2),
+                image: imageUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(imageUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: imageUrl == null
+                  ? Icon(Icons.person_rounded,
+                      color: AppColors.grey400, size: 44.r)
+                  : null,
+            ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: () =>
+                    context.pushNamed(RouteNames.editPersonalInfo),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 28.r,
+                  height: 28.r,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: AppColors.background, width: 2),
+                  ),
+                  child: Icon(Icons.edit_rounded,
+                      color: AppColors.white, size: 13.r),
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: AppDimens.md.h),
+        Text(
+          driver?.fullName ?? '—',
+          style: AppTextStyles.h3.copyWith(
+            fontWeight: FontWeight.w800,
+            color: AppColors.dark,
+          ),
+        ),
+        SizedBox(height: 2.h),
+        Text(
+          driver?.email ?? '—',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey500),
+        ),
+        SizedBox(height: AppDimens.sm.h),
+
+        // Note : le coursier voit qu'il n'est pas encore noté plutôt
+        // qu'une absence qu'il prendrait pour un bug.
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_rounded,
+                color: driver?.estNote == true
+                    ? const Color(0xFFF4C430)
+                    : AppColors.grey300,
+                size: 16.r),
+            SizedBox(width: 4.w),
+            if (driver?.estNote == true) ...[
+              Text(
+                driver!.notation!.toStringAsFixed(1),
+                style:
+                    AppTextStyles.labelSmall.copyWith(color: AppColors.dark),
+              ),
+              SizedBox(width: 4.w),
+              Text(
+                '(${driver!.nombreNotations} avis)',
+                style:
+                    AppTextStyles.caption.copyWith(color: AppColors.grey600),
+              ),
+            ] else
+              Text(
+                'Pas encore noté',
+                style:
+                    AppTextStyles.caption.copyWith(color: AppColors.grey600),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ── Carte groupée ─────────────────────────────────────────────
+class _Carte extends StatelessWidget {
+  const _Carte({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: AppDimens.screenPadding.w),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppDimens.radiusLg),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            children[i],
+            // Filet entre deux lignes seulement, jamais après la
+            // dernière : le bord de la carte fait déjà la séparation.
+            if (i < children.length - 1)
+              Padding(
+                padding: EdgeInsets.only(left: 52.w),
+                child: const Divider(height: 1, color: AppColors.grey100),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Ligne de carte ────────────────────────────────────────────
+class _Ligne extends StatelessWidget {
+  const _Ligne({
     required this.icon,
     required this.label,
+    required this.onTap,
     this.subtitle,
-    this.labelColor,
-    this.iconColor,
-    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String? subtitle;
-  final Color? labelColor;
-  final Color? iconColor;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final sousTitre = subtitle;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: AppDimens.screenPadding.w,
-          vertical: 14.h,
-        ),
+        padding: EdgeInsets.all(AppDimens.md.r),
         child: Row(
           children: [
-            Icon(icon,
-                size: 20.r,
-                color: iconColor ?? AppColors.grey600),
-            SizedBox(width: 16.w),
+            Icon(icon, size: 20.r, color: AppColors.grey600),
+            SizedBox(width: AppDimens.md.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,92 +564,28 @@ class _Row extends StatelessWidget {
                   Text(
                     label,
                     style: AppTextStyles.labelMedium.copyWith(
+                      fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
-                      color: labelColor ?? AppColors.dark,
+                      color: AppColors.dark,
                     ),
                   ),
-                  if (subtitle != null) ...[
+                  if (sousTitre != null && sousTitre.isNotEmpty) ...[
                     SizedBox(height: 2.h),
                     Text(
-                      subtitle!,
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.grey400,
-                      ),
+                      sousTitre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.grey500),
                     ),
                   ],
                 ],
               ),
             ),
-            if (onTap != null && labelColor == null)
-              Icon(Icons.chevron_right,
-                  size: 18.r, color: AppColors.grey300),
+            Icon(Icons.chevron_right, size: 18.r, color: AppColors.grey400),
           ],
         ),
       ),
-    );
-  }
-}
-
-// ── Ligne avec toggle ─────────────────────────────────────────────
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppDimens.screenPadding.w,
-        vertical: 10.h,
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 20.r, color: AppColors.grey600),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Text(
-              label,
-              style: AppTextStyles.labelMedium.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.dark,
-              ),
-            ),
-          ),
-          Transform.scale(
-            scale: 0.85,
-            child: Switch(
-              value: value,
-              onChanged: onChanged,
-              activeThumbColor: Colors.white,
-              activeTrackColor: AppColors.dark,
-              trackOutlineColor:
-                  WidgetStateProperty.all(Colors.transparent),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Divider interne indenté ───────────────────────────────────────
-class _RowDivider extends StatelessWidget {
-  const _RowDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(left: 52.w),
-      child: Divider(height: 1, color: AppColors.grey200),
     );
   }
 }
