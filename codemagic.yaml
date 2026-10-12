@@ -1,0 +1,189 @@
+# Chaîne de publication iOS — Codemagic (YAA PRO)
+#
+# Pourquoi ce fichier existe : le Mac de développement est un MacBook
+# Pro 2017, bloqué sur macOS Ventura. S'y ajoute un second blocage,
+# propre à ce projet : google_navigation_flutter embarque le SDK
+# GoogleNavigation 10.14.0, compilé avec le SDK iOS 26. L'édition de
+# liens y réclame UIGlassEffect, absent du SDK 16.4 fourni par
+# Xcode 14.3.1. Aucune archive — ni debug, ni release — ne peut donc
+# sortir de cette machine. Codemagic compile sur des machines récentes
+# et téléverse à notre place.
+#
+# Différences avec le codemagic.yaml du client (YAA) :
+#   - Pas de Secrets.xcconfig : la clé Maps iOS est en dur dans
+#     AppDelegate.swift, protégée par sa restriction de bundle côté
+#     Google Cloud. Deux fichiers à restaurer au lieu de trois.
+#   - Groupe de variables distinct : api_config.dart et maps_config.dart
+#     diffèrent de ceux du client, on ne peut pas réutiliser yaa-config.
+#
+# Prérequis à configurer dans l'interface Codemagic, une seule fois :
+#   1. L'intégration App Store Connect « yaa-app-store-connect » existe
+#      déjà pour le client — même compte Apple, rien à recréer.
+#   2. Un groupe de variables « yaa-pro-config », marqué « Secure »,
+#      contenant :
+#        API_CONFIG_DART            base64 de lib/config/api/api_config.dart
+#        MAPS_CONFIG_DART           base64 de lib/config/maps/maps_config.dart
+#        CERTIFICATE_PRIVATE_KEY_B64  base64 de la clé privée de distribution
+#      Les trois s'encodent ainsi :
+#        base64 < le_fichier | tr -d '\n' | pbcopy
+#   3. L'app doit exister dans App Store Connect avec le bundle
+#      gn.yaa.pro, et son Apple ID numérique reporté ci-dessous.
+
+workflows:
+  ios-app-store:
+    name: iOS — TestFlight et App Store
+    # Machine du palier gratuit (500 min/mois).
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    integrations:
+      app_store_connect: yaa-app-store-connect
+
+    environment:
+      flutter: stable
+      # « latest » garantit Xcode 26 ou plus. Exigé par Apple pour tout
+      # téléversement, et indispensable ici : c'est le SDK iOS 26 qui
+      # fournit UIGlassEffect au SDK GoogleNavigation. Ne jamais figer
+      # une version ancienne, la build échouerait à l'édition de liens.
+      xcode: latest
+      cocoapods: default
+
+      groups:
+        - yaa-pro-config
+
+      # Pas de bloc « ios_signing » : il récupère des fichiers de
+      # signature existants sans jamais les créer. Sur un bundle neuf
+      # il n'y a ni certificat ni profil, et la build échoue avant le
+      # premier script. La création est faite plus bas, en explicite.
+
+      vars:
+        # Identifiant numérique de l'app dans App Store Connect,
+        # visible dans l'URL : /apps/6822073311/...
+        APP_STORE_APPLE_ID: 6822073311
+        BUNDLE_ID: gn.yaa.pro
+
+    scripts:
+      # Doit rester en tête : sans ces fichiers, l'analyse, les tests et
+      # la compilation échouent tous sur ApiConfig et MapsConfig.
+      - name: Restaurer les fichiers de configuration non versionnés
+        script: |
+          set -euo pipefail
+          echo "Répertoire courant : $(pwd)"
+
+          # Références directes, sans expansion indirecte ${!var} :
+          # celle-ci renvoie le nom au lieu de la valeur dans le shell
+          # de Codemagic, ce qui écrivait des fichiers de 9 à 15 octets
+          # sans que rien n'échoue.
+          echo "Longueurs reçues : API=${#API_CONFIG_DART} MAPS=${#MAPS_CONFIG_DART}"
+
+          mkdir -p lib/config/api lib/config/maps
+          printf '%s' "$API_CONFIG_DART"  | base64 --decode > lib/config/api/api_config.dart
+          printf '%s' "$MAPS_CONFIG_DART" | base64 --decode > lib/config/maps/maps_config.dart
+
+          for f in lib/config/api/api_config.dart \
+                   lib/config/maps/maps_config.dart; do
+            taille=$(wc -c < "$f" | tr -d ' ')
+            echo "  $f : $taille octets"
+            if [ "$taille" -lt 100 ]; then
+              echo "ÉCHEC : $f ne fait que $taille octets." >&2
+              echo "La variable d'environnement correspondante ne contient pas le fichier encodé." >&2
+              exit 1
+            fi
+          done
+
+          # Contrôle de contenu, pas seulement de taille.
+          grep -q 'class ApiConfig'  lib/config/api/api_config.dart
+          grep -q 'class MapsConfig' lib/config/maps/maps_config.dart
+
+          # Garde-fou : un placeholder oublié produirait des appels
+          # Directions refusés en production, sans erreur de compilation.
+          if grep -q 'VOTRE_CLE' lib/config/maps/maps_config.dart; then
+            echo "La clé Google Maps est encore un placeholder." >&2
+            exit 1
+          fi
+
+      - name: Préparer le trousseau de la machine de build
+        script: keychain initialize
+
+      # --create est le drapeau décisif : il fabrique le certificat de
+      # distribution et le profil s'ils n'existent pas encore chez
+      # Apple, au lieu d'échouer en ne les trouvant pas.
+      #
+      # La clé privée transite en base64 puis est reconstruite en
+      # fichier : collée telle quelle dans une variable, sa forme PEM
+      # multiligne est aplatie par le formulaire et l'outil la rejette.
+      - name: Créer ou récupérer certificat et profil
+        script: |
+          set -euo pipefail
+          printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" \
+            | base64 --decode > /tmp/cle_certificat.pem
+          # Le corps d'un PEM est déjà du base64 : si la variable
+          # contient la clé brute, le décodage « réussit » et produit
+          # du binaire. On le détecte ici plutôt que de laisser Apple
+          # renvoyer une erreur illisible.
+          if ! head -1 /tmp/cle_certificat.pem | grep -q 'BEGIN RSA PRIVATE KEY'; then
+            echo "CERTIFICATE_PRIVATE_KEY_B64 ne contient pas la clé encodée." >&2
+            echo "Refaire : base64 < ~/ios_distribution_private_key | tr -d '\\n' | pbcopy" >&2
+            exit 1
+          fi
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@file:/tmp/cle_certificat.pem \
+            --create
+
+      - name: Installer le certificat dans le trousseau
+        script: keychain add-certificates
+
+      # --project cible le projet de l'app et ignore tout autre
+      # .xcodeproj du dépôt. --warn-only évite l'échec sur la cible
+      # RunnerTests, dont l'identifiant gn.yaa.pro.RunnerTests n'a pas
+      # de profil — une cible de tests ne part pas sur l'App Store.
+      - name: Appliquer la signature au projet Xcode
+        script: |
+          xcode-project use-profiles \
+            --project ios/Runner.xcodeproj \
+            --warn-only
+
+      - name: Récupérer les dépendances Flutter
+        script: flutter pub get
+
+      - name: Installer les pods
+        script: find . -name "Podfile" -execdir pod install \;
+
+      - name: Analyse statique
+        script: flutter analyze
+
+      # test/widget_test.dart est encore un squelette vide : ce passage
+      # ne protège de rien pour l'instant. On le garde en place pour que
+      # les tests à venir soient exécutés sans toucher à ce fichier.
+      - name: Tests
+        script: flutter test
+
+      - name: Construire l'IPA
+        script: |
+          set -euo pipefail
+          # La première build n'a aucun antécédent dans TestFlight : la
+          # commande échoue alors, d'où le repli sur 0.
+          PRECEDENT=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          flutter build ipa --release \
+            --build-number=$((PRECEDENT + 1)) \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      email:
+        recipients:
+          - mamekharyseye03@gmail.com
+        notify:
+          success: true
+          failure: true
+
+      app_store_connect:
+        auth: integration
+        # On s'arrête à TestFlight. Passer submit_to_app_store à true
+        # seulement quand la fiche App Store est complète et relue.
+        submit_to_testflight: true
+        submit_to_app_store: false
