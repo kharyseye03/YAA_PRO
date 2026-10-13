@@ -40,7 +40,14 @@ workflows:
       app_store_connect: yaa-app-store-connect
 
     environment:
-      flutter: stable
+      # Version figée, et non « stable » : lucide_icons 0.257.0 étend
+      # IconData, que Flutter a depuis rendue « final ». Le paquet n'est
+      # plus maintenu (dernière publication il y a trois ans), il n'y a
+      # donc pas de mise à jour possible de son côté. 3.38.7 est la
+      # version de la machine de développement, sur laquelle l'analyse
+      # et les tests passent. À relever le jour où les 30 icônes Lucide
+      # utilisées dans lib/ auront été remplacées.
+      flutter: 3.38.7
       # « latest » garantit Xcode 26 ou plus. Exigé par Apple pour tout
       # téléversement, et indispensable ici : c'est le SDK iOS 26 qui
       # fournit UIGlassEffect au SDK GoogleNavigation. Ne jamais figer
