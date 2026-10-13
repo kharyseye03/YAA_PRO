@@ -25,6 +25,14 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Conformité à l'exportation : l'app ne chiffre rien elle-même.
+	     Ses échanges passent par le TLS du système (HTTPS), y compris
+	     ceux de Google Maps et de Firebase, ce qui relève de l'exemption.
+	     Sans cette clé, App Store Connect repose la question du
+	     chiffrement à chaque téléversement et bloque le build.
+	     À réexaminer si une bibliothèque de chiffrement est ajoutée. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
