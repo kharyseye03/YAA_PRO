@@ -45,13 +45,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
+	<!-- Pas de bloc ~ipad : l'app cible l'iPhone uniquement
+	     (TARGETED_DEVICE_FAMILY = 1). Le déclarer compatible iPad
+	     obligeait à fournir des captures d'écran iPad et exposait
+	     l'app à une vérification sur un appareil pour lequel elle
+	     n'est pas conçue. -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
