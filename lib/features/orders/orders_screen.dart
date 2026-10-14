@@ -170,7 +170,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             AppDimens.screenPadding.w,
                             0,
                             AppDimens.screenPadding.w,
-                            100.h + MediaQuery.of(context).padding.bottom,
+                            100.h + MediaQuery.viewPaddingOf(context).bottom,
                           ),
                           itemCount: orders.length,
                           separatorBuilder: (_, __) =>

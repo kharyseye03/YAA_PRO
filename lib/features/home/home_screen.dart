@@ -59,7 +59,15 @@ class HomeScreen extends ConsumerWidget {
             // réserve sa hauteur, plus celle de la barre système, nulle
             // en navigation gestuelle mais bien réelle avec les trois
             // boutons.
-            bottom: 90.h + MediaQuery.of(context).padding.bottom,
+            //
+            // viewPadding et non padding : le Scaffold parent a
+            // extendBody à true, et dans ce cas Flutter remplace le
+            // padding.bottom du body par la hauteur de la barre de
+            // navigation (scaffold.dart, _BodyBuilder). L'utiliser ici
+            // comptait la barre une seconde fois, d'où un écart béant
+            // sous la carte. viewPadding, lui, n'est pas réécrit et
+            // donne bien l'encoche physique.
+            bottom: 90.h + MediaQuery.viewPaddingOf(context).bottom,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -137,6 +145,11 @@ class _DashboardMapState extends ConsumerState<_DashboardMap> {
     // (bascule immédiate vers une mission en cours au démarrage).
     try {
       await controller.setMyLocationEnabled(true);
+      // Le point bleu suffit : sur iOS le SDK ajoute en plus son propre
+      // bouton « ma position » en bas à droite, que la barre de
+      // navigation flottante recouvre à moitié. Android ne l'affiche
+      // pas, d'où un rond blanc visible sur iPhone seulement.
+      await controller.settings.setMyLocationButtonEnabled(false);
       if (!mounted) return;
       final loc = ref.read(currentLocationProvider).valueOrNull;
       if (loc != null) await _centerOn(loc.position);
@@ -277,33 +290,11 @@ class _HomeHeader extends ConsumerWidget {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: () {},
-            behavior: HitTestBehavior.opaque,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                SizedBox(
-                  width: 40.r,
-                  height: 40.r,
-                  child: Icon(LucideIcons.bell,
-                      color: AppColors.white, size: 22.r),
-                ),
-                Positioned(
-                  top: 8.h,
-                  right: 6.w,
-                  child: Container(
-                    width: 7.r,
-                    height: 7.r,
-                    decoration: const BoxDecoration(
-                      color: AppColors.secondary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // La cloche et sa pastille ont été retirées pour la 1.0 : elles
+          // annonçaient des notifications sans écran derrière, et le
+          // GestureDetector répondait au toucher sans rien faire. Apple
+          // refuse ce genre de commande inerte (règle 2.1). À remettre
+          // quand l'écran de notifications existera.
         ],
       ),
     );

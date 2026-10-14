@@ -438,7 +438,7 @@ class _GainsScreenState extends ConsumerState<GainsScreen> {
           // la barre système sur les téléphones à trois boutons.
           SliverToBoxAdapter(
             child: SizedBox(
-                height: 90.h + MediaQuery.of(context).padding.bottom),
+                height: 90.h + MediaQuery.viewPaddingOf(context).bottom),
           ),
         ],
         ),
