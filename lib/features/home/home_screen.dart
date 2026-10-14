@@ -55,19 +55,15 @@ class HomeScreen extends ConsumerWidget {
           Positioned(
             left: 16.w,
             right: 16.w,
-            // La barre de navigation flotte au-dessus du contenu : on
-            // réserve sa hauteur, plus celle de la barre système, nulle
-            // en navigation gestuelle mais bien réelle avec les trois
-            // boutons.
-            //
-            // viewPadding et non padding : le Scaffold parent a
-            // extendBody à true, et dans ce cas Flutter remplace le
-            // padding.bottom du body par la hauteur de la barre de
-            // navigation (scaffold.dart, _BodyBuilder). L'utiliser ici
-            // comptait la barre une seconde fois, d'où un écart béant
-            // sous la carte. viewPadding, lui, n'est pas réécrit et
-            // donne bien l'encoche physique.
-            bottom: 90.h + MediaQuery.viewPaddingOf(context).bottom,
+            // Le Scaffold du shell a extendBody à true : Flutter y
+            // remplace le padding.bottom du body par la hauteur des
+            // widgets du bas, barre système comprise (scaffold.dart,
+            // _BodyBuilder). Cette valeur est donc déjà exactement ce
+            // qu'il faut dégager — on n'ajoute que l'espacement voulu.
+            // Y additionner une hauteur estimée comptait la barre deux
+            // fois ; la remplacer par viewPadding la faisait disparaître
+            // et la carte passait dessous.
+            bottom: MediaQuery.paddingOf(context).bottom + 10.h,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

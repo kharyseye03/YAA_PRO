@@ -384,7 +384,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
 
             // Barre de navigation flottante + barre système
-            SizedBox(height: 90.h + MediaQuery.viewPaddingOf(context).bottom),
+            SizedBox(height: MediaQuery.paddingOf(context).bottom + 16.h),
           ],
         ),
       ),
