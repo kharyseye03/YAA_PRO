@@ -34,7 +34,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// Bloque un second appui pendant l'appel de suppression.
-  bool _suppressionEnCours = false;
 
   /// « 622123456 » → « 622 12 34 56 »
   static String _formatPhone(String raw) {
@@ -132,76 +131,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  /// Suppression définitive du compte.
-  ///
-  /// Exigée par Google Play pour toute application permettant de créer
-  /// un compte. La confirmation est volontairement plus lourde que
-  /// celle de la déconnexion : c'est irréversible, et un appui par
-  /// erreur ferait perdre au coursier son historique et ses gains.
-  Future<void> _supprimerCompte(int driverId) async {
-    final confirme = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text(
-          'Supprimer votre compte ?',
-          style: AppTextStyles.labelLarge.copyWith(
-            fontWeight: FontWeight.w700,
-            color: AppColors.error,
-          ),
-        ),
-        content: Text(
-          'Cette action est définitive. Votre profil, votre véhicule et '
-          'l\'historique de vos courses seront supprimés, et vous ne '
-          'pourrez plus vous connecter avec ce numéro.',
-          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey700),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Annuler',
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.grey600)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(
-              'Supprimer définitivement',
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.error,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirme != true || !mounted) return;
-
-    setState(() => _suppressionEnCours = true);
-    try {
-      await ref.read(apiServiceProvider).deleteAccount(driverId);
-      if (!mounted) return;
-      // Le compte n'existe plus : on nettoie l'état local exactement
-      // comme à la déconnexion, sinon l'app rouvrirait sur des données
-      // d'un compte effacé.
-      await ref.read(refusedMissionsProvider.notifier).clear();
-      ref.read(shellIndexProvider.notifier).state = 0;
-      await ref.read(authProvider.notifier).logout();
-      if (mounted) context.goNamed(RouteNames.onboarding);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _suppressionEnCours = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
-  }
-
   Future<void> _logout() async {
     final confirme = await showDialog<bool>(
       context: context,
@@ -242,12 +171,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     // Les missions refusées sont propres à un coursier
     await ref.read(refusedMissionsProvider.notifier).clear();
-    // Sinon la prochaine connexion rouvre l'app sur cet onglet
-    ref.read(shellIndexProvider.notifier).state = 0;
     await ref.read(authProvider.notifier).logout();
+    if (!mounted) return;
+    // Onglet remis sur l'accueil pour la prochaine connexion, mais
+    // seulement maintenant : le faire avant la déconnexion affichait
+    // l'accueil pendant toute l'attente, le temps que le jeton de
+    // notification soit libéré.
+    ref.read(shellIndexProvider.notifier).state = 0;
     // Retour à l'onboarding plutôt qu'au login : la déconnexion remet
     // l'app dans l'état d'un premier lancement.
-    if (mounted) context.goNamed(RouteNames.onboarding);
+    context.goNamed(RouteNames.onboarding);
   }
 
   @override
@@ -285,11 +218,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 subtitle: driver?.vehiculeInfo?.resume ?? 'Non renseigné',
                 onTap: () => context.pushNamed(RouteNames.vehicle),
               ),
-            ]),
-
-            SizedBox(height: AppDimens.lg.h),
-
-            _Carte(children: [
               _Ligne(
                 icon: Icons.receipt_long_outlined,
                 label: 'Historique des courses',
@@ -350,31 +278,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             SizedBox(height: AppDimens.sm.h),
 
-            // ── Suppression du compte ─────────────────────
-            // Discret et sans encadré : c'est une sortie de secours,
-            // pas une action qu'on propose au même niveau que la
-            // déconnexion.
-            if (driver != null)
-              TextButton(
-                onPressed: _suppressionEnCours
-                    ? null
-                    : () => _supprimerCompte(driver.id),
-                child: _suppressionEnCours
-                    ? SizedBox(
-                        height: 16.r,
-                        width: 16.r,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppColors.error),
-                      )
-                    : Text(
-                        'Supprimer mon compte',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.error,
-                          decoration: TextDecoration.underline,
-                          decorationColor: AppColors.error,
-                        ),
-                      ),
-              ),
+            // La suppression du compte vit dans « Informations
+            // personnelles » : c'est là qu'on gère son identité, et
+            // elle n'a pas à côtoyer la déconnexion, bien plus
+            // fréquente et anodine.
 
             SizedBox(height: AppDimens.sm.h),
 
@@ -403,70 +310,107 @@ class _EnTete extends StatelessWidget {
         ? ApiConfig.getImageUrl(driver!.imageFileName!)
         : null;
 
-    return Column(
-      children: [
-        Stack(
-          children: [
-            Container(
-              width: 88.r,
-              height: 88.r,
-              decoration: BoxDecoration(
-                color: AppColors.grey100,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.grey200, width: 2),
-                image: imageUrl != null
-                    ? DecorationImage(
-                        image: NetworkImage(imageUrl),
-                        fit: BoxFit.cover,
-                      )
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: AppDimens.screenPadding.w),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Titre de page plutôt qu'un avatar centré : l'écran sert
+          // surtout à ouvrir les rubriques en dessous.
+          Text(
+            'Mon espace',
+            style: AppTextStyles.h2.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.dark,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            'Gérez vos informations et vos préférences.',
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey600),
+          ),
+          SizedBox(height: AppDimens.xl.h),
+
+          Row(
+            children: [
+              Container(
+                width: 68.r,
+                height: 68.r,
+                decoration: BoxDecoration(
+                  color: AppColors.grey100,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.grey200, width: 2),
+                  image: imageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(imageUrl),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                child: imageUrl == null
+                    ? Icon(Icons.person_rounded,
+                        color: AppColors.grey400, size: 34.r)
                     : null,
               ),
-              child: imageUrl == null
-                  ? Icon(Icons.person_rounded,
-                      color: AppColors.grey400, size: 44.r)
-                  : null,
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: GestureDetector(
-                onTap: () =>
-                    context.pushNamed(RouteNames.editPersonalInfo),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 28.r,
-                  height: 28.r,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: AppColors.background, width: 2),
-                  ),
-                  child: Icon(Icons.edit_rounded,
-                      color: AppColors.white, size: 13.r),
+              SizedBox(width: AppDimens.lg.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      driver?.fullName ?? '—',
+                      style: AppTextStyles.h3.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.dark,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      driver?.email ?? '—',
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.grey500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4.h),
+                    _Note(driver: driver),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-        SizedBox(height: AppDimens.md.h),
-        Text(
-          driver?.fullName ?? '—',
-          style: AppTextStyles.h3.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppColors.dark,
+              SizedBox(width: AppDimens.sm.w),
+              // Modifier la photo et les informations
+              GestureDetector(
+                onTap: () => context.pushNamed(RouteNames.editPersonalInfo),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 42.r,
+                  height: 42.r,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primarySurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.edit_rounded,
+                      color: AppColors.primary, size: 18.r),
+                ),
+              ),
+            ],
           ),
-        ),
-        SizedBox(height: 2.h),
-        Text(
-          driver?.email ?? '—',
-          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey500),
-        ),
-        SizedBox(height: AppDimens.sm.h),
+        ],
+      ),
+    );
+  }
+}
 
-        // Note : le coursier voit qu'il n'est pas encore noté plutôt
-        // qu'une absence qu'il prendrait pour un bug.
-        Row(
+// ── Note du coursier ──────────────────────────────────────────
+class _Note extends StatelessWidget {
+  const _Note({required this.driver});
+  final DriverDetail? driver;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.star_rounded,
@@ -493,8 +437,6 @@ class _EnTete extends StatelessWidget {
                 style:
                     AppTextStyles.caption.copyWith(color: AppColors.grey600),
               ),
-          ],
-        ),
       ],
     );
   }
@@ -517,8 +459,6 @@ class _Carte extends StatelessWidget {
         children: [
           for (var i = 0; i < children.length; i++) ...[
             children[i],
-            // Filet entre deux lignes seulement, jamais après la
-            // dernière : le bord de la carte fait déjà la séparation.
             if (i < children.length - 1)
               Padding(
                 padding: EdgeInsets.only(left: 52.w),

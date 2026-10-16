@@ -172,7 +172,11 @@ abstract final class AppTheme {
             top: Radius.circular(AppDimens.radiusXl),
           ),
         ),
-        showDragHandle: true,
+        // Material dessinerait sa propre poignée, par-dessus celle que
+        // chaque feuille trace déjà : deux traits, dont un sombre qui
+        // flottait hors de la feuille puisque le fond Material est
+        // transparent.
+        showDragHandle: false,
       ),
     );
   }

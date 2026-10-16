@@ -31,13 +31,11 @@ class VehicleScreen extends ConsumerWidget {
                 GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   behavior: HitTestBehavior.opaque,
-                  child: Container(
+                  // Sans fond : la flèche se suffit, et le carré gris
+                  // alourdissait l'en-tête.
+                  child: SizedBox(
                     width: 38.r,
                     height: 38.r,
-                    decoration: BoxDecoration(
-                      color: AppColors.grey100,
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
                     child: Icon(Icons.chevron_left_rounded,
                         color: AppColors.dark, size: 22.r),
                   ),

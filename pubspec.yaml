@@ -132,8 +132,6 @@ flutter:
   # plus des 5 graisses réellement utilisées.
   assets:
     - assets/images/logo_white.png
-    - assets/images/map2.png
-    - assets/images/ob2.jpeg
     - assets/images/ob1.png
     - assets/images/moto.png
     - assets/images/voiture.png

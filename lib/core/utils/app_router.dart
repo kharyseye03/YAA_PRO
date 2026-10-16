@@ -9,7 +9,6 @@ import '../../features/auth/verification_screen.dart';
 import '../../features/shell/main_shell.dart';
 import '../../features/delivery/delivery_screen.dart';
 import '../../features/history/history_screen.dart';
-import '../../features/orders/order_detail_screen.dart';
 import '../../features/profile/personal_info_screen.dart';
 import '../../features/profile/edit_personal_info_screen.dart';
 import '../../features/profile/vehicle_screen.dart';
@@ -28,7 +27,6 @@ abstract final class RoutePaths {
   static const String home = '/home';
   static const String orders = '/orders';
   static const String delivery = '/delivery';
-  static const String orderDetail = '/order-detail';
   static const String history = '/history';
   static const String profile = '/profile';
   static const String personalInfo = '/personal-info';
@@ -48,7 +46,6 @@ abstract final class RouteNames {
   static const String home = 'home';
   static const String orders = 'orders';
   static const String delivery = 'delivery';
-  static const String orderDetail = 'orderDetail';
   static const String history = 'history';
   static const String profile = 'profile';
   static const String personalInfo = 'personalInfo';
@@ -139,13 +136,8 @@ final appRouter = GoRouter(
       name: RouteNames.delivery,
       builder: (context, state) => const DeliveryScreen(),
     ),
-    GoRoute(
-      path: RoutePaths.orderDetail,
-      name: RouteNames.orderDetail,
-      builder: (context, state) => OrderDetailScreen(
-        order: state.extra as OrderDetailArgs?,
-      ),
-    ),
+    // Le détail d'une course proposée s'ouvre en feuille depuis la
+    // liste (showOrderDetailSheet) : plus d'écran dédié.
 
     GoRoute(
       path: RoutePaths.history,

@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart' show Position;
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/type_service_ui.dart';
-import '../../core/utils/app_router.dart';
 import '../../model/order/mission.dart';
 import '../auth/providers/driver_provider.dart';
-import '../orders/order_detail_screen.dart';
 import '../orders/providers/accept_mission.dart';
 import '../orders/providers/orders_provider.dart';
+import '../orders/widgets/order_detail_sheet.dart';
 import '../shell/main_shell.dart';
 import 'providers/location_provider.dart';
 
@@ -405,24 +403,6 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
       ref.watch(currentLocationProvider).valueOrNull?.position,
     );
 
-    final args = OrderDetailArgs(
-      missionId: order.id,
-      id: order.code,
-      amount: order.montantFormate,
-      distance: order.distanceLabel,
-      estimatedTime: order.dureeLabel,
-      pickup: order.adresseDepart,
-      delivery: order.adresseArrivee,
-      timerSeconds: 0,
-      category: order.typeLabel,
-      merchantName: order.typeLabel,
-      merchantAddress: order.adresseDepart,
-      merchantPhone: '',
-      clientName: 'Client',
-      clientPhone: '',
-      clientNotes: order.instructions,
-    );
-
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -439,10 +419,7 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
         children: [
           // Zone tappable (tout sauf les boutons)
           GestureDetector(
-            onTap: () => context.pushNamed(
-              RouteNames.orderDetail,
-              extra: args,
-            ),
+            onTap: () => showOrderDetailSheet(context, order),
             behavior: HitTestBehavior.opaque,
             child: Column(children: [
           // Catégorie + timer

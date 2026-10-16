@@ -5,13 +5,95 @@ import 'package:go_router/go_router.dart';
 import '../../config/api/api_config.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/app_router.dart';
+import '../auth/providers/auth_notifier.dart';
 import '../auth/providers/driver_provider.dart';
+import '../orders/providers/refused_missions_provider.dart';
+import '../shell/main_shell.dart';
 
-class PersonalInfoScreen extends ConsumerWidget {
+class PersonalInfoScreen extends ConsumerStatefulWidget {
   const PersonalInfoScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PersonalInfoScreen> createState() =>
+      _PersonalInfoScreenState();
+}
+
+class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
+  bool _suppressionEnCours = false;
+
+  /// Suppression définitive du compte.
+  ///
+  /// Exigée par Google Play pour toute application permettant de créer
+  /// un compte. La confirmation est volontairement plus lourde que
+  /// celle de la déconnexion : c'est irréversible, et un appui par
+  /// erreur ferait perdre au coursier son historique et ses gains.
+  Future<void> _supprimerCompte(int driverId) async {
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text(
+          'Supprimer votre compte ?',
+          style: AppTextStyles.labelLarge.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppColors.error,
+          ),
+        ),
+        content: Text(
+          'Cette action est définitive. Votre profil, votre véhicule et '
+          'l\'historique de vos courses seront supprimés, et vous ne '
+          'pourrez plus vous connecter avec ce numéro.',
+          style: AppTextStyles.bodySmall.copyWith(color: AppColors.grey700),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Annuler',
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.grey600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Supprimer définitivement',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirme != true || !mounted) return;
+
+    setState(() => _suppressionEnCours = true);
+    try {
+      await ref.read(apiServiceProvider).deleteAccount(driverId);
+      if (!mounted) return;
+      // Le compte n'existe plus : on nettoie l'état local exactement
+      // comme à la déconnexion, sinon l'app rouvrirait sur des données
+      // d'un compte effacé.
+      await ref.read(refusedMissionsProvider.notifier).clear();
+      await ref.read(authProvider.notifier).logout();
+      if (!mounted) return;
+      ref.read(shellIndexProvider.notifier).state = 0;
+      context.goNamed(RouteNames.onboarding);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _suppressionEnCours = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final driver = ref.watch(driverDetailProvider).valueOrNull;
     final imageUrl = driver?.imageFileName != null
         ? ApiConfig.getImageUrl(driver!.imageFileName!)
@@ -34,13 +116,11 @@ class PersonalInfoScreen extends ConsumerWidget {
                 GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   behavior: HitTestBehavior.opaque,
-                  child: Container(
+                  // Sans fond : la flèche se suffit, et le carré gris
+                  // alourdissait l'en-tête.
+                  child: SizedBox(
                     width: 38.r,
                     height: 38.r,
-                    decoration: BoxDecoration(
-                      color: AppColors.grey100,
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
                     child: Icon(
                       Icons.chevron_left_rounded,
                       color: AppColors.dark,
@@ -173,6 +253,35 @@ class PersonalInfoScreen extends ConsumerWidget {
                     ),
                     Divider(height: 1, color: AppColors.grey200),
                   ],
+
+                  // ── Suppression du compte ─────────────────
+                  // Discrète et en bas de page : c'est une sortie de
+                  // secours, pas une action proposée au même niveau
+                  // que la modification des informations.
+                  if (driver != null) ...[
+                    SizedBox(height: 28.h),
+                    TextButton(
+                      onPressed: _suppressionEnCours
+                          ? null
+                          : () => _supprimerCompte(driver.id),
+                      child: _suppressionEnCours
+                          ? SizedBox(
+                              height: 16.r,
+                              width: 16.r,
+                              child: const CircularProgressIndicator(
+                                  strokeWidth: 2, color: AppColors.error),
+                            )
+                          : Text(
+                              'Supprimer mon compte',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.error,
+                                decoration: TextDecoration.underline,
+                                decorationColor: AppColors.error,
+                              ),
+                            ),
+                    ),
+                  ],
+                  SizedBox(height: 12.h),
                 ],
               ),
             ),

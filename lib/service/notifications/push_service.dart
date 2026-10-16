@@ -191,7 +191,13 @@ class PushService {
     }
     try {
       // Firebase en fabriquera un neuf à la prochaine connexion.
-      await FirebaseMessaging.instance.deleteToken();
+      //
+      // Borné dans le temps : cet appel part sur le réseau, et la
+      // déconnexion l'attend. Sans limite, un coursier en zone de
+      // mauvaise couverture reste bloqué sur l'écran précédent.
+      await FirebaseMessaging.instance
+          .deleteToken()
+          .timeout(const Duration(seconds: 3));
     } catch (_) {}
     _jeton = null;
   }
