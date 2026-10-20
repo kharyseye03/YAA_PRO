@@ -39,7 +39,14 @@ class NavigationService {
       if (!await ensureTermsAccepted()) return NavStartResult.termsRefused;
 
       if (!await GoogleMapsNavigator.isInitialized()) {
-        await GoogleMapsNavigator.initializeNavigationSession();
+        await GoogleMapsNavigator.initializeNavigationSession(
+          // Par défaut le SDK continue à guider, et sa notification
+          // reste affichée, même après que le coursier a balayé l'app
+          // depuis les applications récentes. Il l'interprète comme un
+          // guidage resté coincé, puisque plus rien à l'écran ne lui
+          // permet de l'arrêter.
+          taskRemovedBehavior: TaskRemovedBehavior.quitService,
+        );
       }
 
       final status = await GoogleMapsNavigator.setDestinations(
@@ -98,6 +105,27 @@ class NavigationService {
       }
     } catch (e) {
       debugPrint('❌ Arrêt navigation → $e');
+    }
+  }
+
+  /// Coupe un guidage resté actif alors qu'aucune mission n'est en
+  /// cours.
+  ///
+  /// Le service de premier plan du SDK survit à la mort de l'interface
+  /// (manque de mémoire, plantage) : sa notification reste alors
+  /// affichée, avec la distance figée, sans plus rien pour l'arrêter.
+  /// Appelé au démarrage de l'app.
+  Future<void> arreterGuidageOrphelin() async {
+    try {
+      if (!await GoogleMapsNavigator.isInitialized()) return;
+      if (await GoogleMapsNavigator.isGuidanceRunning()) {
+        await GoogleMapsNavigator.stopGuidance();
+      }
+      // Libère la session et arrête le service, donc la notification.
+      await GoogleMapsNavigator.cleanup();
+      debugPrint('🧭 Guidage orphelin arrêté au démarrage');
+    } catch (e) {
+      debugPrint('🧭 Nettoyage du guidage : $e');
     }
   }
 

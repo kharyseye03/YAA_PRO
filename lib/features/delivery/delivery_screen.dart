@@ -12,6 +12,7 @@ import '../../core/utils/map_marker.dart';
 import '../../core/widgets/slide_to_confirm.dart';
 import '../../model/order/mission.dart';
 import '../../model/order/mission_labels.dart';
+import '../../model/order/mission_statut.dart';
 import '../../model/order/nav_route.dart';
 import '../../service/maps/navigation_service.dart';
 import '../auth/providers/auth_notifier.dart';
@@ -59,6 +60,10 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
   /// carte n'est construite avant de savoir laquelle afficher.
   bool _checkingGuidance = true;
 
+  /// L'annulation n'est annoncée qu'une fois : `build` peut être
+  /// rappelé avant que l'écran ait fini de se retirer.
+  bool _annonceFaite = false;
+
   final _navService = NavigationService();
   StreamSubscription<OnArrivalEvent>? _arrivalSub;
 
@@ -74,7 +79,15 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
     });
     _markerIcons = _loadMarkerIcons();
     _resumeGuidanceIfRunning();
+    // Une annulation reçue pendant que l'app était en arrière-plan
+    // n'aurait rien mis à jour si le coursier n'a pas touché la
+    // notification : on relit la mission à chaque retour à l'écran.
+    _cycleDeVie = AppLifecycleListener(
+      onResume: () => ref.invalidate(activeMissionProvider),
+    );
   }
+
+  AppLifecycleListener? _cycleDeVie;
 
   /// Le système peut détruire l'interface pendant que le guidage tourne
   /// encore en arrière-plan (mémoire faible). Au retour, on reprend la
@@ -106,6 +119,7 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
 
   @override
   void dispose() {
+    _cycleDeVie?.dispose();
     _arrivalSub?.cancel();
     if (_navigating) _navService.stopGuidance();
     super.dispose();
@@ -421,6 +435,22 @@ class _DeliveryScreenState extends ConsumerState<DeliveryScreen> {
           // Terminée ou annulée côté serveur : on rend la main au
           // tableau de bord sans laisser le livreur bloqué ici.
           if (mission.isFinished) {
+            // Une annulation vient du client, pas du coursier : sans
+            // un mot, il verrait sa course disparaître sans comprendre,
+            // peut-être en plein guidage.
+            if (mission.statutEnum == MissionStatut.annule && !_annonceFaite) {
+              _annonceFaite = true;
+              final messenger = ScaffoldMessenger.of(context);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: const Text('Le client a annulé cette course.'),
+                    backgroundColor: AppColors.dark,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              });
+            }
             WidgetsBinding.instance
                 .addPostFrameCallback((_) => _leaveScreen());
             return const Center(

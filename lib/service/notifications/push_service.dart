@@ -63,6 +63,12 @@ class PushService {
   /// pas naviguer, il se contente de transmettre les données.
   void Function(Map<String, dynamic> donnees)? onOuverture;
 
+  /// Appelé dès qu'un message arrive, app ouverte, sans attendre que
+  /// le coursier touche la notification. C'est ce qui permet à l'écran
+  /// affiché de se mettre à jour — une course annulée doit disparaître
+  /// même s'il ne regarde pas la barre de notifications.
+  void Function(Map<String, dynamic> donnees)? onMessage;
+
   // ── Démarrage ────────────────────────────────────────────────
 
   /// À appeler une fois au lancement, avant `runApp`.
@@ -82,7 +88,7 @@ class PushService {
 
       // App au premier plan : Android n'affiche rien tout seul, c'est
       // à nous de le faire. iOS sait le faire, on le lui demande.
-      FirebaseMessaging.onMessage.listen(_afficherAuPremierPlan);
+      FirebaseMessaging.onMessage.listen(_auPremierPlan);
       await FirebaseMessaging.instance
           .setForegroundNotificationPresentationOptions(
         alert: true,
@@ -168,7 +174,7 @@ class PushService {
     try {
       await ApiService().enregistrerAppareil(
         token: jeton,
-        plateforme: Platform.isIOS ? 'IOS' : 'ANDROID',
+        plateforme: Platform.isIOS ? 'ios' : 'android',
       );
     } catch (e) {
       // L'endpoint n'existe pas encore côté backend : on n'en fait pas
@@ -203,6 +209,12 @@ class PushService {
   }
 
   // ── Réception ────────────────────────────────────────────────
+
+  Future<void> _auPremierPlan(RemoteMessage message) async {
+    debugPrint('🔔 Message reçu → ${message.data}');
+    onMessage?.call(message.data);
+    await _afficherAuPremierPlan(message);
+  }
 
   Future<void> _afficherAuPremierPlan(RemoteMessage message) async {
     final notif = message.notification;

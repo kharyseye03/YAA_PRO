@@ -168,18 +168,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (confirme != true) return;
-
-    // Les missions refusées sont propres à un coursier
     await ref.read(refusedMissionsProvider.notifier).clear();
     await ref.read(authProvider.notifier).logout();
     if (!mounted) return;
-    // Onglet remis sur l'accueil pour la prochaine connexion, mais
-    // seulement maintenant : le faire avant la déconnexion affichait
-    // l'accueil pendant toute l'attente, le temps que le jeton de
-    // notification soit libéré.
     ref.read(shellIndexProvider.notifier).state = 0;
-    // Retour à l'onboarding plutôt qu'au login : la déconnexion remet
-    // l'app dans l'état d'un premier lancement.
     context.goNamed(RouteNames.onboarding);
   }
 

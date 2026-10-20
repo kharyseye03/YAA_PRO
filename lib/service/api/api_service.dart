@@ -166,31 +166,38 @@ class ApiService {
   /// doit pas créer de doublon.
   Future<void> enregistrerAppareil({
     required String token,
-    required String plateforme, // ANDROID | IOS
+    required String plateforme, // android | ios
   }) async {
     if (!ApiConfig.notificationsPushDisponibles) return;
-    final url = ApiConfig.getUrl(ApiConfig.appareilsEndpoint);
+    final url = ApiConfig.getUrl(ApiConfig.deviceRegisterEndpoint);
     final response = await _authed((jeton) => http.post(
           Uri.parse(url),
           headers: {
             ...ApiConfig.jsonHeaders,
             'Authorization': 'Bearer $jeton',
           },
-          body: jsonEncode({'token': token, 'plateforme': plateforme}),
+          body: jsonEncode({
+            'token': token,
+            'appType': ApiConfig.appType,
+            'platform': plateforme,
+          }),
         ));
     debugPrint('📡 Enregistrement appareil → ${response.statusCode}');
     if (response.statusCode >= 400) {
+      debugPrint('📬 Body → ${response.body}');
       throw Exception('Enregistrement de l\'appareil refusé.');
     }
   }
 
   /// Détache le jeton du compte, à la déconnexion.
+  ///
+  /// Sans route côté backend, il n'y a rien à appeler : le jeton est
+  /// seulement supprimé sur le téléphone.
   Future<void> supprimerAppareil({required String token}) async {
-    if (!ApiConfig.notificationsPushDisponibles) return;
-    final url =
-        ApiConfig.getUrl('${ApiConfig.appareilsEndpoint}/$token');
+    final endpoint = ApiConfig.deviceUnregisterEndpoint;
+    if (!ApiConfig.notificationsPushDisponibles || endpoint == null) return;
     final response = await _authed((jeton) => http.delete(
-          Uri.parse(url),
+          Uri.parse(ApiConfig.getUrl('$endpoint/$token')),
           headers: {'Authorization': 'Bearer $jeton'},
         ));
     debugPrint('📡 Suppression appareil → ${response.statusCode}');

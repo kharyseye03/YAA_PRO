@@ -40,6 +40,20 @@ class ApiConfig {
   static String commandeStructureDetailEndpoint(int id) =>
       '/commandes-livreurs/detail?id=$id';
 
+  // ── Endpoints Notifications push ──────────────────────────
+  /// Jeton Firebase de cet appareil, rangé à côté du compte livreur.
+  /// Corps attendu : `{ token, appType, platform }`.
+  static const String deviceRegisterEndpoint = '/devices/register';
+
+  /// « CLIENT » pour l'app client, « PRO » ici : les deux partagent le
+  /// backend et le projet Firebase.
+  static const String appType = 'PRO';
+
+  static const bool notificationsPushDisponibles = true;
+
+  /// Retrait du jeton à la déconnexion : pas de route connue à ce jour.
+  static const String? deviceUnregisterEndpoint = null;
+
   // ── Timeouts ──────────────────────────────────────────────
   static const int connectionTimeout = 30;
 

@@ -8,7 +8,9 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/constants.dart';
 import 'core/utils/app_router.dart';
 import 'features/delivery/providers/active_mission_provider.dart';
+import 'features/orders/providers/orders_provider.dart';
 import 'features/shell/main_shell.dart';
+import 'service/maps/navigation_service.dart';
 import 'service/notifications/push_service.dart';
 import 'service/storage/active_mission_storage.dart';
 
@@ -39,6 +41,13 @@ Future<void> main() async {
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
   ));
+  // Aucune mission en cours : un guidage encore actif ne correspond à
+  // rien, et sa notification resterait affichée sans moyen de la
+  // fermer.
+  if (activeMissionId == null) {
+    await NavigationService().arreterGuidageOrphelin();
+  }
+
   // Avant runApp : c'est ici que se récupère le message ayant réveillé
   // une app fermée. N'échoue jamais — sans Firebase configuré, le
   // service se désactive et l'app démarre normalement.
@@ -54,13 +63,29 @@ Future<void> main() async {
     ],
   );
 
-  // Le service reçoit les notifications, il ne sait pas naviguer : on
-  // lui donne ici de quoi le faire. Destination unique pour l'instant,
-  // l'onglet des courses ; les types de notification seront précisés
-  // avec le backend.
+  // Toute notification du backend porte `type: COURSE_STATUT` et un
+  // champ `statut` : nouvelle course, annulation… Dans tous les cas la
+  // bonne réaction est la même — relire les courses et la mission en
+  // cours. L'écran affiché se met alors à jour tout seul : une course
+  // annulée disparaît, et l'écran de mission rend la main au tableau
+  // de bord, sans que le coursier ait à toucher la notification.
+  void rafraichir(Map<String, dynamic> donnees) {
+    debugPrint('🔔 Rafraîchissement sur notification → $donnees');
+    conteneur.invalidate(activeMissionProvider);
+    conteneur.invalidate(allOrdersProvider);
+    conteneur.invalidate(availableOrdersProvider);
+  }
+
+  PushService.instance.onMessage = rafraichir;
+
+  // Le service ne sait pas naviguer : on lui donne ici de quoi le
+  // faire. Une annulation renvoie au tableau de bord — la course
+  // n'existe plus, la liste n'apprendrait rien ; tout le reste mène à
+  // l'onglet des courses.
   PushService.instance.onOuverture = (donnees) {
-    debugPrint('🔔 Notification ouverte → $donnees');
-    conteneur.read(shellIndexProvider.notifier).state = 1;
+    rafraichir(donnees);
+    final annulee = donnees['statut']?.toString().toUpperCase() == 'ANNULE';
+    conteneur.read(shellIndexProvider.notifier).state = annulee ? 0 : 1;
     appRouter.go(RoutePaths.home);
   };
 
