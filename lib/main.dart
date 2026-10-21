@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/constants/constants.dart';
 import 'core/utils/app_router.dart';
 import 'features/delivery/providers/active_mission_provider.dart';
+import 'features/notifications/providers/notifications_provider.dart';
 import 'features/orders/providers/orders_provider.dart';
 import 'features/shell/main_shell.dart';
 import 'service/maps/navigation_service.dart';
@@ -74,6 +75,10 @@ Future<void> main() async {
     conteneur.invalidate(activeMissionProvider);
     conteneur.invalidate(allOrdersProvider);
     conteneur.invalidate(availableOrdersProvider);
+    // Le backend garde une trace de chaque envoi : la pastille et la
+    // liste doivent suivre.
+    conteneur.invalidate(notificationsProvider);
+    conteneur.invalidate(notificationsNonLuesProvider);
   }
 
   PushService.instance.onMessage = rafraichir;

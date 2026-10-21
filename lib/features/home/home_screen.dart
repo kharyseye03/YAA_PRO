@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart' show Position;
 import 'package:google_navigation_flutter/google_navigation_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../core/constants/constants.dart';
+import '../../core/utils/app_router.dart';
 import '../../core/utils/type_service_ui.dart';
+import '../notifications/providers/notifications_provider.dart';
 import '../../model/order/mission.dart';
 import '../auth/providers/driver_provider.dart';
 import '../orders/providers/accept_mission.dart';
@@ -284,11 +287,67 @@ class _HomeHeader extends ConsumerWidget {
               ],
             ),
           ),
-          // La cloche et sa pastille ont été retirées pour la 1.0 : elles
-          // annonçaient des notifications sans écran derrière, et le
-          // GestureDetector répondait au toucher sans rien faire. Apple
-          // refuse ce genre de commande inerte (règle 2.1). À remettre
-          // quand l'écran de notifications existera.
+          // Remise une fois l'écran Notifications en place : elle avait
+          // été retirée pour la 1.0 parce qu'elle n'ouvrait rien, ce
+          // qu'Apple refuse (règle 2.1).
+          const _ClocheNotifications(),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Cloche + pastille des non lues ─────────────────────────────
+class _ClocheNotifications extends ConsumerWidget {
+  const _ClocheNotifications();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Une erreur réseau ne doit pas faire disparaître la cloche : on
+    // affiche alors la cloche sans pastille.
+    final nonLues = ref.watch(notificationsNonLuesProvider).valueOrNull ?? 0;
+
+    return GestureDetector(
+      onTap: () => context.pushNamed(RouteNames.notifications),
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 40.r,
+            height: 40.r,
+            decoration: BoxDecoration(
+              color: AppColors.white.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(LucideIcons.bell, color: AppColors.white, size: 19.r),
+          ),
+          if (nonLues > 0)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 1.h),
+                constraints: BoxConstraints(minWidth: 18.r),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  borderRadius: BorderRadius.circular(AppDimens.radiusFull),
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                ),
+                child: Text(
+                  // Au-delà de 9, le compte exact n'apprend plus rien
+                  // et la pastille déborderait.
+                  nonLues > 9 ? '9+' : '$nonLues',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Archivo',
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.white,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

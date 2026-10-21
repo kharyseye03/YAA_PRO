@@ -8,6 +8,7 @@ import '../../config/api/api_config.dart';
 import '../../model/auth/auth_response.dart';
 import '../../model/driver/driver_detail.dart';
 import '../../model/gains/gains_summary.dart';
+import '../../model/notification/app_notification.dart';
 import '../../model/order/commande_produit.dart';
 import '../../model/order/history_mission.dart';
 import '../../model/order/mission.dart';
@@ -201,6 +202,82 @@ class ApiService {
           headers: {'Authorization': 'Bearer $jeton'},
         ));
     debugPrint('📡 Suppression appareil → ${response.statusCode}');
+  }
+
+  // ── Historique des notifications ──────────────────────────
+
+  Uri _notifUri(String endpoint) =>
+      Uri.parse(ApiConfig.getUrl(endpoint)).replace(
+        queryParameters: {'appType': ApiConfig.appType},
+      );
+
+  /// Les 50 notifications les plus récentes du coursier connecté.
+  Future<List<AppNotification>> getNotifications() async {
+    final response = await _authed((token) => http.get(
+          _notifUri(ApiConfig.notificationsEndpoint),
+          headers: {'Authorization': 'Bearer $token'},
+        ));
+    debugPrint('📡 Notifications → ${response.statusCode}');
+    if (response.statusCode != 200) {
+      throw Exception(_errorMessage(
+          response, 'Impossible de charger vos notifications.'));
+    }
+    // Le backend renvoie la liste directement, sans enveloppe `data`.
+    final decode = jsonDecode(response.body);
+    final liste = decode is List ? decode : (decode['data'] as List? ?? []);
+    return liste
+        .whereType<Map<String, dynamic>>()
+        .map(AppNotification.fromJson)
+        .toList();
+  }
+
+  /// Nombre de notifications non lues, pour la pastille de l'accueil.
+  ///
+  /// Tolérant sur la forme : le backend peut renvoyer un nombre, un
+  /// objet `{count: n}` ou la liste elle-même.
+  Future<int> getNotificationsNonLues() async {
+    final response = await _authed((token) => http.get(
+          _notifUri(ApiConfig.notificationsNonLuesEndpoint),
+          headers: {'Authorization': 'Bearer $token'},
+        ));
+    if (response.statusCode != 200) return 0;
+    final decode = jsonDecode(response.body);
+    if (decode is num) return decode.toInt();
+    if (decode is List) return decode.length;
+    if (decode is Map<String, dynamic>) {
+      final valeur = decode['count'] ?? decode['nombre'] ?? decode['data'];
+      if (valeur is num) return valeur.toInt();
+      if (valeur is List) return valeur.length;
+    }
+    return 0;
+  }
+
+  Future<void> marquerNotificationLue(int id) async {
+    await _authed((token) => http.put(
+          Uri.parse(ApiConfig.getUrl(ApiConfig.notificationLueEndpoint(id))),
+          headers: {'Authorization': 'Bearer $token'},
+        ));
+  }
+
+  Future<void> marquerToutesNotificationsLues() async {
+    await _authed((token) => http.put(
+          _notifUri(ApiConfig.notificationsToutesLuesEndpoint),
+          headers: {'Authorization': 'Bearer $token'},
+        ));
+  }
+
+  Future<void> supprimerNotification(int id) async {
+    await _authed((token) => http.delete(
+          Uri.parse(ApiConfig.getUrl(ApiConfig.notificationEndpoint(id))),
+          headers: {'Authorization': 'Bearer $token'},
+        ));
+  }
+
+  Future<void> supprimerToutesNotifications() async {
+    await _authed((token) => http.delete(
+          _notifUri(ApiConfig.notificationsEndpoint),
+          headers: {'Authorization': 'Bearer $token'},
+        ));
   }
 
   // ── Inscription ───────────────────────────────────────────

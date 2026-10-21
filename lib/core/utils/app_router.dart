@@ -9,6 +9,7 @@ import '../../features/auth/verification_screen.dart';
 import '../../features/shell/main_shell.dart';
 import '../../features/delivery/delivery_screen.dart';
 import '../../features/history/history_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
 import '../../features/profile/personal_info_screen.dart';
 import '../../features/profile/edit_personal_info_screen.dart';
 import '../../features/profile/vehicle_screen.dart';
@@ -32,6 +33,7 @@ abstract final class RoutePaths {
   static const String personalInfo = '/personal-info';
   static const String editPersonalInfo = '/edit-personal-info';
   static const String vehicle = '/vehicle';
+  static const String notifications = '/notifications';
 }
 
 abstract final class RouteNames {
@@ -51,6 +53,7 @@ abstract final class RouteNames {
   static const String personalInfo = 'personalInfo';
   static const String editPersonalInfo = 'editPersonalInfo';
   static const String vehicle = 'vehicle';
+  static const String notifications = 'notifications';
 }
 
 final appRouter = GoRouter(
@@ -143,6 +146,12 @@ final appRouter = GoRouter(
       path: RoutePaths.history,
       name: RouteNames.history,
       builder: (context, state) => const HistoryScreen(),
+    ),
+
+    GoRoute(
+      path: RoutePaths.notifications,
+      name: RouteNames.notifications,
+      builder: (context, state) => const NotificationsScreen(),
     ),
 
     // ── Profil ─────────────────────────────────────────────
