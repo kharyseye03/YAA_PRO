@@ -1,0 +1,12 @@
+Cette version répond aux retours des testeurs.
+
+• Notifications : vous êtes prévenu dès qu'une course est disponible
+  près de vous, ou lorsqu'un client annule. Un écran Notifications
+  garde l'historique de ce que vous avez reçu.
+• Une course annulée par le client ne vous laisse plus bloqué : le
+  guidage s'arrête et vous revenez au tableau de bord.
+• Le guidage ne reste plus actif après la fermeture de l'application.
+• Le détail d'une course s'ouvre directement depuis la liste, sans
+  changer d'écran.
+• Profil réorganisé et barre de navigation corrigée sur les téléphones
+  à trois boutons.
