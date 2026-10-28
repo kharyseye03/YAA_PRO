@@ -313,14 +313,12 @@ class _ClocheNotifications extends ConsumerWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
+          // Sans fond : la cloche se détache déjà du bleu de l'en-tête.
+          // La taille reste celle d'une cible tactile confortable.
+          SizedBox(
             width: 40.r,
             height: 40.r,
-            decoration: BoxDecoration(
-              color: AppColors.white.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(LucideIcons.bell, color: AppColors.white, size: 19.r),
+            child: Icon(LucideIcons.bell, color: AppColors.white, size: 21.r),
           ),
           if (nonLues > 0)
             Positioned(
