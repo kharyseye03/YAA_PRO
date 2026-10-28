@@ -70,6 +70,10 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
@@ -84,6 +88,16 @@ configurations.all {
 dependencies {
     // Le Navigation SDK exige la variante « nio » du desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
+
+    // DataStore arrive par le SDK Navigation (1.2.0) et par
+    // shared_preferences (1.1.7). Ces versions embarquent une
+    // bibliothèque native dont le segment RELRO n'est pas aligné sur
+    // 16 Ko : Play avertit que l'app peut planter sur les téléphones
+    // récents. La 1.3.0, compilée avec un NDK récent, corrige cet
+    // alignement. Gradle retient la plus haute version demandée, donc
+    // la déclarer ici suffit.
+    implementation("androidx.datastore:datastore:1.3.0")
+    implementation("androidx.datastore:datastore-preferences:1.3.0")
 }
 
 flutter {
