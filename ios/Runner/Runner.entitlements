@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Droit de recevoir des notifications push.
+
+	     « production » et non « development » : cette valeur décide à
+	     quel serveur APNs l'appareil s'adresse, et les deux ne
+	     communiquent pas. Xcode écrit « development » quand on active
+	     la capacité à la main, en comptant sur l'export App Store pour
+	     la remplacer — une chaîne qui signe en manuel, elle, ne
+	     remplace rien. Une app partie en TestFlight avec
+	     « development » s'enregistre auprès du serveur de test : les
+	     messages sont acceptés et n'arrivent jamais.
+
+	     Conséquence à connaître : un build lancé depuis Xcode en
+	     débogage ne recevra pas de notifications. Pour tester sur un
+	     appareil branché au Mac, passer temporairement à
+	     « development » — et ne pas committer ce changement. -->
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>

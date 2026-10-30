@@ -1,21 +1,50 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../permissions/file_autorisations.dart';
+
 class LocationService {
+  // ── Priorité de la demande d'autorisation ──────────────────
+  //
+  // La position passe avant les notifications, non par principe mais
+  // parce que l'accueil l'attend : tant qu'elle n'est pas tranchée, la
+  // carte du tableau de bord reste grise. Les notifications, elles,
+  // peuvent patienter quelques secondes.
+  //
+  // [autorisationTranchee] se termine dès que la question est réglée,
+  // accordée ou refusée, et ne se termine qu'une fois : les appels
+  // suivants la retrouvent close et ne font plus attendre personne.
+  static final Completer<void> _autorisationTranchee = Completer<void>();
+  static Future<void> get autorisationTranchee =>
+      _autorisationTranchee.future;
+
+  static void _trancherAutorisation() {
+    if (!_autorisationTranchee.isCompleted) _autorisationTranchee.complete();
+  }
+
   /// Position GPS actuelle (gère permissions + service désactivé).
   Future<Position> getCurrentPosition() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      // La question ne sera pas posée : libérer la file tout de suite,
+      // sinon les notifications attendent une réponse qui ne viendra
+      // jamais.
+      _trancherAutorisation();
       throw Exception('Le GPS est désactivé.');
     }
 
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        throw Exception('Permission de localisation refusée.');
-      }
+      // En file : une seule boîte de dialogue système à la fois.
+      permission =
+          await FileAutorisations.enFile(() => Geolocator.requestPermission());
+    }
+    _trancherAutorisation();
+    if (permission == LocationPermission.denied) {
+      throw Exception('Permission de localisation refusée.');
     }
     if (permission == LocationPermission.deniedForever) {
       throw Exception(

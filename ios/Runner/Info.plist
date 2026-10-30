@@ -61,10 +61,14 @@
 	<string>Votre position permet de vous proposer les courses proches et de vous guider jusqu'au point de récupération puis de livraison.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Votre position permet de poursuivre le guidage et de suivre la livraison même lorsque l'application est en arrière-plan.</string>
-	<!-- Guidage maintenu écran éteint ou app en arrière-plan -->
+	<!-- `location` : guidage maintenu écran éteint ou app en arrière-plan.
+	     `remote-notification` : laisse iOS réveiller l'app sur un
+	     message silencieux, le temps de rafraîchir la liste des courses
+	     avant que le coursier n'ouvre la notification. -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>remote-notification</string>
 	</array>
 </dict>
 </plist>

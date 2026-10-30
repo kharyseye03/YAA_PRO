@@ -3,9 +3,12 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../api/api_service.dart';
+import '../location/location_service.dart';
+import '../permissions/file_autorisations.dart';
 
 /// Notifications push, de bout en bout.
 ///
@@ -58,6 +61,17 @@ class PushService {
   bool _actif = false;
   String? _jeton;
 
+  /// Le serveur connaît ce jeton. Faux tant qu'il ne le connaît pas,
+  /// ce qui autorise [reprendreEnregistrement] à réessayer.
+  bool _enregistre = false;
+
+  /// L'écoute du renouvellement du jeton, posée une seule fois.
+  bool _ecouteRenouvellement = false;
+
+  /// Retenu pour être libéré proprement ; en pratique le service vit
+  /// aussi longtemps que l'app.
+  AppLifecycleListener? _cycleDeVie;
+
   /// Appelé quand le coursier touche une notification. Renseigné par
   /// l'application une fois le routeur construit — le service ne sait
   /// pas naviguer, il se contente de transmettre les données.
@@ -105,6 +119,14 @@ class PushService {
       if (initial != null) _ouvrir(initial);
 
       _actif = true;
+
+      // Un enregistrement qui a échoué — démarrage sans réseau, jeton
+      // APNs pas encore délivré — ne se retentait jamais : l'appareil
+      // restait inconnu du backend jusqu'à la connexion suivante. Le
+      // retour au premier plan est le bon moment pour réessayer.
+      _cycleDeVie ??= AppLifecycleListener(
+        onResume: () => reprendreEnregistrement(),
+      );
     } catch (e) {
       debugPrint('⚠️ Initialisation des notifications échouée : $e');
     }
@@ -147,40 +169,109 @@ class PushService {
   Future<void> enregistrerAppareil() async {
     if (!_actif) return;
     try {
-      final reglages = await FirebaseMessaging.instance.requestPermission();
+      // Laisser la localisation poser sa question d'abord : l'accueil
+      // l'attend pour afficher la carte, les notifications peuvent
+      // patienter. Le délai n'est qu'un garde-fou, pour le cas où
+      // aucun écran ne demanderait la position ; la file, elle,
+      // garantit dans tous les cas qu'une seule boîte est à l'écran.
+      await LocationService.autorisationTranchee
+          .timeout(const Duration(seconds: 10), onTimeout: () {});
+
+      final reglages = await FileAutorisations.enFile(
+          () => FirebaseMessaging.instance.requestPermission());
       if (reglages.authorizationStatus == AuthorizationStatus.denied) {
         debugPrint('ℹ️ Notifications refusées par le coursier');
         return;
       }
 
+      // Sur iOS, le jeton Firebase est dérivé du jeton APNs, qu'Apple
+      // délivre de façon asynchrone après l'acceptation. Demander le
+      // jeton trop tôt renvoie `null` — et comme on abandonne sur
+      // `null`, l'appareil ne serait jamais enregistré au premier
+      // lancement, celui qui compte. On laisse donc APNs répondre.
+      if (Platform.isIOS && !await _attendreJetonApns()) {
+        debugPrint('⚠️ Jeton APNs indisponible, enregistrement reporté');
+        return;
+      }
+
       final jeton = await FirebaseMessaging.instance.getToken();
       if (jeton == null) return;
-      // Visible uniquement en debug : sert à envoyer une notification
-      // de test depuis la console Firebase, sans attendre le backend.
-      debugPrint('🔑 Jeton FCM : $jeton');
+      // Jamais dans un build livré : le jeton identifie l'appareil.
+      // En debug, il sert à envoyer une notification de test depuis la
+      // console Firebase sans attendre le backend.
+      if (kDebugMode) debugPrint('🔑 Jeton FCM : $jeton');
       await _envoyerAuBackend(jeton);
 
       // Firebase renouvelle le jeton de lui-même : réinstallation,
       // restauration, effacement des données. Sans cette écoute, les
       // notifications cessent d'arriver un jour, sans rien signaler.
-      FirebaseMessaging.instance.onTokenRefresh.listen(_envoyerAuBackend);
+      //
+      // Posée une fois pour toutes : `enregistrerAppareil` est appelé
+      // à chaque connexion et au retour au premier plan, et reposer
+      // l'écoute empilerait les abonnements — le jeton partirait
+      // alors en plusieurs exemplaires.
+      if (!_ecouteRenouvellement) {
+        _ecouteRenouvellement = true;
+        FirebaseMessaging.instance.onTokenRefresh.listen(_envoyerAuBackend);
+      }
     } catch (e) {
       debugPrint('⚠️ Enregistrement du jeton échoué : $e');
     }
   }
 
+  /// Attend qu'Apple ait délivré le jeton APNs, au plus dix secondes.
+  ///
+  /// Il arrive presque toujours en moins d'une seconde ; l'attente ne
+  /// se voit pas, puisqu'elle a lieu après la connexion, pendant que
+  /// l'accueil se remplit. Sans réseau, ou sur un simulateur, il ne
+  /// vient jamais — d'où la sortie au bout du délai, qui laisse
+  /// [reprendreEnregistrement] et `onTokenRefresh` rattraper le coup.
+  Future<bool> _attendreJetonApns() async {
+    for (var essai = 0; essai < 10; essai++) {
+      final apns = await FirebaseMessaging.instance.getAPNSToken();
+      if (apns != null) return true;
+      await Future<void>.delayed(const Duration(seconds: 1));
+    }
+    return false;
+  }
+
+  /// Envoie le jeton au backend, en réessayant.
+  ///
+  /// L'enregistrement n'a lieu qu'à la connexion. S'il échoue — réseau
+  /// qui flanche, backend qui redémarre —, rien ne le retentait et
+  /// l'appareil restait inconnu du serveur jusqu'à la connexion
+  /// suivante, sans que personne ne s'en aperçoive.
   Future<void> _envoyerAuBackend(String jeton) async {
     _jeton = jeton;
-    try {
-      await ApiService().enregistrerAppareil(
-        token: jeton,
-        plateforme: Platform.isIOS ? 'ios' : 'android',
-      );
-    } catch (e) {
-      // L'endpoint n'existe pas encore côté backend : on n'en fait pas
-      // une erreur visible, le reste de l'app n'en dépend pas.
-      debugPrint('⚠️ Envoi du jeton au backend échoué : $e');
+
+    for (var essai = 1; essai <= 3; essai++) {
+      try {
+        await ApiService().enregistrerAppareil(
+          token: jeton,
+          plateforme: Platform.isIOS ? 'ios' : 'android',
+        );
+        _enregistre = true;
+        return;
+      } catch (e) {
+        debugPrint('⚠️ Envoi du jeton au backend échoué (essai $essai) : $e');
+        if (essai < 3) {
+          await Future<void>.delayed(Duration(seconds: 2 * essai));
+        }
+      }
     }
+    // Les trois tentatives ont échoué : [reprendreEnregistrement] le
+    // retentera au prochain retour au premier plan.
+    _enregistre = false;
+  }
+
+  /// Reprend l'enregistrement s'il n'a jamais abouti.
+  ///
+  /// Appelé au retour au premier plan. Ne fait rien dans le cas normal,
+  /// où le serveur connaît déjà ce jeton ; sert aux fois où l'app a
+  /// démarré sans réseau, ou avant qu'Apple ait délivré son jeton APNs.
+  Future<void> reprendreEnregistrement() async {
+    if (!_actif || _enregistre) return;
+    await enregistrerAppareil();
   }
 
   /// À appeler **à la déconnexion**, avant d'effacer la session.
@@ -189,8 +280,14 @@ class PushService {
   /// reçoit les notifications du précédent : ses courses, ses clients.
   Future<void> oublierAppareil() async {
     if (!_actif) return;
-    final jeton = _jeton ?? await FirebaseMessaging.instance.getToken();
+    // La lecture du jeton est elle aussi sous `try` : sur iOS,
+    // `getToken` lève quand Apple n'a pas délivré de jeton APNs — ce
+    // qui arrive dès que la capacité push manque au build. Hors du
+    // `try`, l'exception remonterait jusqu'à `logout`, qui n'irait
+    // jamais jusqu'à effacer la session : impossible de se
+    // déconnecter.
     try {
+      final jeton = _jeton ?? await FirebaseMessaging.instance.getToken();
       // Borné comme deleteToken juste en dessous : la déconnexion
       // attend cet appel, et un coursier en mauvaise couverture ne
       // doit pas rester coincé sur l'écran précédent pour autant.
@@ -213,6 +310,7 @@ class PushService {
           .timeout(const Duration(seconds: 3));
     } catch (_) {}
     _jeton = null;
+    _enregistre = false;
   }
 
   // ── Réception ────────────────────────────────────────────────
