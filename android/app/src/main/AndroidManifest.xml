@@ -24,6 +24,26 @@
     <uses-permission
         android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
         tools:node="remove"/>
+
+    <!-- Le `android:screenOrientation="portrait"` de MainActivity fait
+         déduire à Google Play que l'app *exige* la fonctionnalité
+         « écran portrait » : Play l'a aussitôt retirée de 26 appareils
+         qui ne tournent qu'en paysage — téléviseurs, bornes, certains
+         Chromebooks. Les coursiers n'en utilisent aucun, mais la
+         restriction prive aussi d'éventuels installés de leurs mises à
+         jour. On déclare donc la fonctionnalité non requise : le verrou
+         portrait continue d'agir là où l'appareil sait tourner, et
+         aucun appareil n'est écarté du catalogue.
+
+         Le pendant paysage est déclaré pour la même raison, par
+         symétrie : aucun écran ne le demande, rien ne doit filtrer
+         là-dessus. -->
+    <uses-feature
+        android:name="android.hardware.screen.portrait"
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.screen.landscape"
+        android:required="false"/>
     <application
         android:label="YAA PRO"
         android:name="${applicationName}"
