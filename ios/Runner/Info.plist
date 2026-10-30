@@ -39,11 +39,12 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- Portrait uniquement, comme main.dart : cette liste-ci régit la
+	     rotation avant le démarrage du moteur Flutter, écran de
+	     lancement compris. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<!-- Pas de bloc ~ipad : l'app cible l'iPhone uniquement
 	     (TARGETED_DEVICE_FAMILY = 1). Le déclarer compatible iPad

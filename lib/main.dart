@@ -18,6 +18,23 @@ import 'service/storage/active_mission_storage.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // L'app ne vit qu'en portrait. Tous les écrans sont dimensionnés
+  // sur une référence 390×844 : en paysage, l'en-tête et la barre
+  // d'onglets mangent la hauteur utile, la feuille de mission n'a plus
+  // la place de s'ouvrir et la carte de l'accueil se réduit à une
+  // bande. Un coursier à moto ne tient de toute façon pas son
+  // téléphone à l'horizontale.
+  //
+  // Le verrou est posé sur les trois couches : ici pour Flutter,
+  // `android:screenOrientation` dans le manifeste et
+  // `UISupportedInterfaceOrientations` dans Info.plist pour le natif.
+  // Celui-ci n'agit qu'une fois le moteur démarré — sans les deux
+  // autres, l'écran de lancement s'afficherait encore de travers sur
+  // un téléphone tenu à l'horizontale.
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
   // Mission en cours lue avant le premier affichage : voir
   // ActiveMissionIdNotifier. Quelques millisecondes, sous le splash.
   final activeMissionId = await ActiveMissionStorage.instance.get();
