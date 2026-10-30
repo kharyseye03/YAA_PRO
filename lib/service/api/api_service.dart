@@ -192,16 +192,25 @@ class ApiService {
 
   /// Détache le jeton du compte, à la déconnexion.
   ///
-  /// Sans route côté backend, il n'y a rien à appeler : le jeton est
-  /// seulement supprimé sur le téléphone.
+  /// Le jeton voyage en paramètre d'URL, pas dans un corps : c'est le
+  /// contrat du backend pour cette route. `queryParameters` s'occupe
+  /// de l'encodage — un jeton FCM contient des `:` et des `/`.
+  ///
+  /// L'échec n'est pas relancé : la déconnexion ne doit jamais être
+  /// bloquée par le réseau. Le jeton est de toute façon effacé côté
+  /// téléphone juste après, et Firebase rejettera les envois suivants.
   Future<void> supprimerAppareil({required String token}) async {
-    final endpoint = ApiConfig.deviceUnregisterEndpoint;
-    if (!ApiConfig.notificationsPushDisponibles || endpoint == null) return;
+    if (!ApiConfig.notificationsPushDisponibles) return;
+    final url = Uri.parse(ApiConfig.getUrl(ApiConfig.deviceUnregisterEndpoint))
+        .replace(queryParameters: {'token': token});
     final response = await _authed((jeton) => http.delete(
-          Uri.parse(ApiConfig.getUrl('$endpoint/$token')),
+          url,
           headers: {'Authorization': 'Bearer $jeton'},
         ));
     debugPrint('📡 Suppression appareil → ${response.statusCode}');
+    if (response.statusCode >= 400) {
+      debugPrint('📬 Body → ${response.body}');
+    }
   }
 
   // ── Historique des notifications ──────────────────────────

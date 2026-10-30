@@ -191,7 +191,14 @@ class PushService {
     if (!_actif) return;
     final jeton = _jeton ?? await FirebaseMessaging.instance.getToken();
     try {
-      if (jeton != null) await ApiService().supprimerAppareil(token: jeton);
+      // Borné comme deleteToken juste en dessous : la déconnexion
+      // attend cet appel, et un coursier en mauvaise couverture ne
+      // doit pas rester coincé sur l'écran précédent pour autant.
+      if (jeton != null) {
+        await ApiService()
+            .supprimerAppareil(token: jeton)
+            .timeout(const Duration(seconds: 3));
+      }
     } catch (e) {
       debugPrint('⚠️ Suppression du jeton côté backend échouée : $e');
     }

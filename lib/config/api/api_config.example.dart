@@ -51,8 +51,9 @@ class ApiConfig {
 
   static const bool notificationsPushDisponibles = true;
 
-  /// Retrait du jeton à la déconnexion : pas de route connue à ce jour.
-  static const String? deviceUnregisterEndpoint = null;
+  /// Retrait du jeton de cet appareil à la déconnexion :
+  /// `DELETE /devices/unregister?token=<jeton>`.
+  static const String deviceUnregisterEndpoint = '/devices/unregister';
 
   // ── Timeouts ──────────────────────────────────────────────
   static const int connectionTimeout = 30;
