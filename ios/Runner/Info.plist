@@ -39,9 +39,11 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
-	<!-- Portrait uniquement, comme main.dart : cette liste-ci régit la
-	     rotation avant le démarrage du moteur Flutter, écran de
-	     lancement compris. -->
+	<!-- Portrait uniquement. Cette liste est un plafond : iOS
+	     n'autorise jamais une orientation qui n'y figure pas, écran de
+	     lancement compris. C'est le seul verrou côté iOS, rien ne le
+	     double dans le code Dart. Le pendant Android est le
+	     `android:screenOrientation` de MainActivity. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

@@ -25,24 +25,24 @@
         android:name="android.permission.ACCESS_BACKGROUND_LOCATION"
         tools:node="remove"/>
 
-    <!-- Le `android:screenOrientation="portrait"` de MainActivity fait
-         déduire à Google Play que l'app *exige* la fonctionnalité
-         « écran portrait » : Play l'a aussitôt retirée de 26 appareils
-         qui ne tournent qu'en paysage — téléviseurs, bornes, certains
-         Chromebooks. Les coursiers n'en utilisent aucun, mais la
-         restriction prive aussi d'éventuels installés de leurs mises à
-         jour. On déclare donc la fonctionnalité non requise : le verrou
-         portrait continue d'agir là où l'appareil sait tourner, et
-         aucun appareil n'est écarté du catalogue.
+    <!-- Verrou portrait, côté Android. L'app est dessinée pour le
+         portrait : en paysage, l'en-tête et la barre d'onglets mangent
+         la hauteur utile, la feuille de mission n'a plus la place de
+         s'ouvrir et la carte de l'accueil se réduit à une bande. Le
+         pendant iOS est `UISupportedInterfaceOrientations`, dans
+         Info.plist.
 
-         Le pendant paysage est déclaré pour la même raison, par
-         symétrie : aucun écran ne le demande, rien ne doit filtrer
-         là-dessus. -->
+         Le `android:screenOrientation="portrait"` posé plus bas sur
+         MainActivity suffirait à verrouiller, mais Play en déduit que
+         l'app *exige* la fonctionnalité « écran portrait » et la
+         retire aussitôt des appareils qui ne tournent qu'en paysage —
+         26 d'entre eux la première fois, téléviseurs et bornes pour
+         l'essentiel. Aucun coursier n'en utilise, mais la restriction
+         priverait aussi d'éventuels installés de leurs mises à jour.
+         Déclarer la fonctionnalité explicitement non requise annule la
+         déduction, sans rien changer au verrou. -->
     <uses-feature
         android:name="android.hardware.screen.portrait"
-        android:required="false"/>
-    <uses-feature
-        android:name="android.hardware.screen.landscape"
         android:required="false"/>
     <application
         android:label="YAA PRO"
